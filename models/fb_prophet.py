@@ -6,7 +6,7 @@ class FBProphet:
     self.hypers = kwargs.get('hypers', {})
     self.trained_model = None
 
-  def train(self, data):
+  def fit(self, data):
     # Prepare the data for the FB Prophet train method.
     prophet_df = data.copy(deep=True)
     prophet_df.rename(columns={'adjusted_prc':'y', 'date': 'ds'}, inplace=True)
@@ -26,8 +26,8 @@ class FBProphet:
 
     # Assume that the prediction is normally distributed with mean y. Hence std_dev = (yhat_upper - yhat_lower) / 4
     forecast['std_dev'] = (forecast.yhat_upper - forecast.yhat_lower)/4
-
     forecast.rename(columns={'yhat':'adjusted_prc_pred', 'ds': 'date'}, inplace=True)
     forecast = forecast[['adjusted_prc_pred', 'date', 'std_dev']]
+
     # Return only the periods we care about.
     return forecast.iloc[[x-1 for x in periods_ahead]]
