@@ -1,11 +1,21 @@
 from fbprophet import Prophet
 import pandas as pd
 
-class FBProphet:
+class FBProphet(Model):
+  """
+    Thin wrapper around the FBProphet Class. Used to fit the model on a set
+  """
+
   def __init__(self, **kwargs):
     self.hypers = kwargs.get('hypers', {})
     self.trained_model = None
 
+  """
+    Fits the model with the test data.
+
+    :param data: Pandas Dataframe. Column date(type: datetime) and adjusted_prc(type: float).
+    :return: self
+  """
   def fit(self, data):
     # Prepare the data for the FB Prophet train method.
     prophet_df = data.copy(deep=True)
@@ -14,13 +24,18 @@ class FBProphet:
 
     # Set prediction interval to 95%
     self.trained_model = Prophet(**self.hypers, interval_width = 0.95).fit(prophet_df)
-    return self.trained_model
+    return self
+  """
+    Predicts the future given the trained model.
 
+    :param periods_ahead: List<Int>. ex. periods_ahead = [7, 30, 90] Considering our last known value is at time t, we will predict [t + 7, t + 30, t + 90].
+    :param features: List<string>. Facebook Prophet predict methods do not take features, as you must fit. Argument here is used for monkey patching.
+  """
   def predict(self, periods_ahead, features=None):
     if not self.trained_model:
       raise("Need to Train the model!")
 
-    future = self.trained_model.make_future_dataframe(periods=periods_ahead[-1], include_history=False, freq='D')
+    future = self.trained_model.make_future_dataframe(periods=sorted(periods_ahead)[-1], include_history=False, freq='D')
     forecast = self.trained_model.predict(future)
     forecast = forecast[['ds', 'yhat', 'yhat_upper', 'yhat_lower']]
 

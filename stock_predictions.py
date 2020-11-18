@@ -1,20 +1,34 @@
 class StockPredictions:
+    """
+      Class is used to train and evaluate multiple stocks given one model for the entire lifecycle provided.
+
+      :param model: Model Class. (see model.py and fb_prophet.py for examples).
+      :param permnos: Array<Int>. Represents the stock Permno.
+      :param dataset: String. The full table name of the features dataset.
+      :param features: Array<String>. Array of strings of features. Must match column names in bigquery dataset.
+      :param hypers: Dict<Any>. Dictionary of hyper parameters. Will be fed into the Model class above.
+      :param start: String. Date to start training. E.g. '1980-01-01' will start the evaluation the first of January.
+      :param end: String. Date to end training. E.g. '2020-01-01' will end training 2000-01-01
+      :param offset: String. Date to start evaluation. E.g. start='1980-01-01', offset='2000-01-01'. Our first training will be from 1980 to 2000.
+      :param increments: Int. How many days after offset to retrain the model.
+      :param evaluation_timeframe: Array<Int> Which time horizons we are evaluating the model on.
+
+      E.g. For Params.
+        Model = FBPRophet, Permno = ['AAPL', ..., 'GOOG'], dataset ='my_dataset', features = ['adjusted_prc'], hypers={}, start = '1980-01-01', end = '2020-01-01', offset = '2000-01-01', increments=180, evaluation_timeframe = [180].
+
+        First we will train each model from start (1980-01-01) to offset (2000-01-01) and evaluate the 180 days prediction.
+        Next we will retrain each model every 6 months until end ('2020-01-01') and evaluate the 180 days prediction.
+    """
     def __init__(self, **kwargs):
       self.model = kwargs['model']
       self.permnos = kwargs['permnos']
       self.dataset = kwargs['dataset']
       self.features = kwargs['features']
       self.hypers = kwargs['hypers']
-
-      # Start date of evaluation.
       self.start = datetime.strptime(kwargs['start'], '%Y-%m-%d').date()
-      # End date of evaluation.
       self.end = datetime.strptime(kwargs['end'], '%Y-%m-%d').date()
-      # Offset of first training model.
       self.offset = datetime.strptime(kwargs['offset'], '%Y-%m-%d').date()
-      # How often are we retraining and repicking the stocks.
       self.increments = kwargs['increments']
-      # Which prediction timeframes are we interested in.
       self.evaluation_timeframe = sorted(kwargs['evaluation_timeframe'])
 
     def eval(self):
@@ -35,10 +49,7 @@ class StockPredictions:
             'evaluation_timeframe': self.evaluation_timeframe
           }
 
-
           trainer = StockModelTrainer(**kwargs)
-          print(type(trainer))
-          print(type(kwargs['model']))
           trainer.fit()
           return trainer.evaluate()
 
@@ -59,11 +70,13 @@ class StockPredictions:
             date
       """
 
-      # Get all necessary data and split it into train and test dataframes.
+
       df = client.query(QUERY).to_dataframe()
 
+      #TODO: Memoize this.
       return df
 
+    # TODO: Cover case where we can train but we can't evaluate because we don't have the data.
     def __get_stock_timeframes(self):
       QUERY = f"""
         SELECT
