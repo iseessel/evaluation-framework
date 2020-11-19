@@ -1,3 +1,6 @@
+"""
+  Base class for models to inherit from.
+"""
 class Model:
     def __init__(self, **kwargs):
       self.hypers = kwargs.get('hypers', {})

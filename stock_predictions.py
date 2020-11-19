@@ -1,3 +1,8 @@
+import numpy as np
+import pandas as pd
+from datetime import datetime, timedelta
+from stock_model_trainer import StockModelTrainer
+
 class StockPredictions:
     """
       Class is used to train and evaluate multiple stocks given one model for the entire lifecycle provided.
@@ -20,6 +25,7 @@ class StockPredictions:
         Next we will retrain each model every 6 months until end ('2020-01-01') and evaluate the 180 days prediction.
     """
     def __init__(self, **kwargs):
+      self.client = kwargs['client']
       self.model = kwargs['model']
       self.permnos = kwargs['permnos']
       self.dataset = kwargs['dataset']
@@ -38,22 +44,28 @@ class StockPredictions:
 
       # TODO: Opportunity to parallelize this.
       for permno, timeframes in timeframes.items():
+        stock_result = []
+
         for time in timeframes:
           train, test = self.__get_train_test(stock_data, permno, self.start, time, self.evaluation_timeframe[-1])
-
           kwargs = {
             'model': self.model(**self.hypers),
             'permno': permno,
             'train': train,
             'test': test,
-            'evaluation_timeframe': self.evaluation_timeframe
+            'evaluation_timeframe': self.evaluation_timeframe,
+            'hypers': self.hypers
           }
 
           trainer = StockModelTrainer(**kwargs)
           trainer.fit()
-          return trainer.evaluate()
+          df = trainer.evaluate()
+          if len(stock_result) == 0:
+            stock_result.append(df.columns.values.tolist())
 
-        # Write prediction results to bigquery.
+          stock_result = stock_result + df.values.tolist()
+
+      return pd.DataFrame(stock_result[1:], columns=stock_result[0])
 
     # TODO: Decide whether or not to Retrieve this per stock (May run into memory constraints.)
     def __get_stock_data(self):
@@ -65,13 +77,13 @@ class StockPredictions:
         WHERE
             permno IN UNNEST({ self.permnos }) AND
               date >= '{ self.start.strftime('%Y-%m-%d') }' AND
-              date <= '{ self.end.strftime('%Y-%m-%d') }'
+              date <= '{ self.__eval_end(self.end).strftime('%Y-%m-%d') }'
         ORDER BY
             date
       """
 
 
-      df = client.query(QUERY).to_dataframe()
+      df = self.client.query(QUERY).to_dataframe()
 
       #TODO: Memoize this.
       return df
@@ -84,25 +96,30 @@ class StockPredictions:
         FROM
             `{ self.dataset }`
         WHERE
-            permno IN UNNEST({ self.permnos }) AND date >= '{ self.start.strftime('%Y-%m-%d') }' AND date <= '{ self.end.strftime('%Y-%m-%d') }'
+            permno IN UNNEST({ self.permnos }) AND
+            date >= '{ self.start.strftime('%Y-%m-%d') }' AND
+            date <= '{ self.__eval_end(self.end).strftime('%Y-%m-%d') }'
         GROUP BY
             permno
       """
 
-      df = client.query(QUERY).to_dataframe()
+      df = self.client.query(QUERY).to_dataframe()
       dates = self.__get_timeframes()
 
       result = {}
       for s in df.iterrows():
         stock = s[1]
-        # Only choose the stock dates that are within the correct time period.
-        stock_dates = [date for date in dates if date >= stock.min_date and date <= stock.max_date]
+        # Only choose the stocks for which we can evaluate the future properly.
+        max_date = stock.max_date - timedelta(days=self.evaluation_timeframe[-1])
+
+        stock_dates = [date for date in dates if date >= stock.min_date and date <= max_date]
         result[stock.permno] = stock_dates
 
       return result
 
     def __get_train_test(self, df, permno, start, end, last_pred_days):
-      eval_end = end + timedelta(days=last_pred_days)
+      # Add 7 in case time occurrs on a holiday and/or weekend.
+      eval_end = end + timedelta(days=last_pred_days + 7)
       df = df[df['permno'] == permno]
 
       train = df[(df['date'] >= start) & (df['date'] <= end)]
@@ -119,3 +136,7 @@ class StockPredictions:
         curr_date = curr_date + timedelta(days=self.increments)
 
       return dates
+
+    def __eval_end(self, end):
+      eval_end = end + timedelta(days=self.evaluation_timeframe[-1])
+      return eval_end

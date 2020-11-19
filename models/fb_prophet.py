@@ -1,7 +1,9 @@
 from fbprophet import Prophet
+from model import Model
 import pandas as pd
 
-class FBProphet(Model):
+# class FBProphet(Model):
+class FBProphet:
   """
     Thin wrapper around the FBProphet Class. Used to fit the model on a set
   """
