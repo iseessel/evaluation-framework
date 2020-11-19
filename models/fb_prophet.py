@@ -1,5 +1,5 @@
 from fbprophet import Prophet
-from model import Model
+# from model import Model
 import pandas as pd
 
 # class FBProphet(Model):
@@ -42,9 +42,9 @@ class FBProphet:
     forecast = forecast[['ds', 'yhat', 'yhat_upper', 'yhat_lower']]
 
     # Assume that the prediction is normally distributed with mean y. Hence std_dev = (yhat_upper - yhat_lower) / 4
-    forecast['std_dev'] = (forecast.yhat_upper - forecast.yhat_lower)/4
+    forecast['std_dev_pred'] = (forecast.yhat_upper - forecast.yhat_lower)/4
     forecast.rename(columns={'yhat':'adjusted_prc_pred', 'ds': 'date'}, inplace=True)
-    forecast = forecast[['adjusted_prc_pred', 'date', 'std_dev']]
+    forecast = forecast[['adjusted_prc_pred', 'date', 'std_dev_pred']]
 
     # Return only the periods we care about.
     return forecast.iloc[[x-1 for x in periods_ahead]]

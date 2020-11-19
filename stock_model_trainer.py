@@ -1,5 +1,5 @@
 import pandas as pd
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import json
 
 class StockModelTrainer:
@@ -32,47 +32,61 @@ class StockModelTrainer:
     self.test = kwargs['test']
     self.evaluation_timeframe = sorted(kwargs['evaluation_timeframe'])
     self.hypers = kwargs['hypers']
+    self.dataset = kwargs['dataset']
 
   def fit(self):
     return self.model.fit(self.train)
 
   def evaluate(self):
+    print(f"Permno: {self.permno}.")
+    print(f"Min Train Date: {str(self.train['date'].min())}.")
+    print(f"Max Train Date: {str(self.train['date'].max())}.")
+    print(f"Max Test Date: {str(self.test['date'].max())}.")
+
     predictions = self.model.predict(self.evaluation_timeframe, features=self.train)
 
     # Collate the predictions with the test data.
     test_data = self.__interpolate_test(predictions)
-    # import pdb; pdb.set_trace()
     test_data = test_data.loc[predictions['date'].dt.strftime('%Y-%m-%d')]
-    # import pdb; pdb.set_trace()
 
     test_data['date'] = test_data.index.to_timestamp()
+    test_data['adjusted_prc_actual'] = test_data['adjusted_prc']
     test_data = pd.merge(test_data, predictions, on='date')
 
-    test_data['permno'] = self.train['permno']
-    test_data['ticker'] = self.train['ticker']
+    test_data['permno'] = self.permno
+    test_data['ticker'] = self.train['ticker'][self.train['ticker'].notnull()].iloc[0]
     test_data['model'] = self.model.__class__.__name__
     test_data['hypers'] = json.dumps(self.hypers)
-    test_data['MSE'] = (test_data.adjusted_prc - test_data.adjusted_prc_pred)**2 # Mean Square Error.
-    test_data['MAPE'] = abs((test_data.adjusted_prc - test_data.adjusted_prc_pred)/test_data.adjusted_prc) # Mean Average Percent Error.
 
+    test_data['train_start'] = str(self.train['date'].min())
+    test_data['train_end'] = str(self.train['date'].max())
+    test_data['prediction_date'] = test_data['date'].astype(str)
+    test_data['dataset'] = self.dataset
+    test_data['features'] = ','.join(self.train.columns.values.tolist())
+
+    test_data['MSE'] = (test_data.adjusted_prc_actual - test_data.adjusted_prc_pred)**2 # Mean Square Error.
+    test_data['MAPE'] = abs((test_data.adjusted_prc_actual - test_data.adjusted_prc_pred)/test_data.adjusted_prc_actual) # Mean Average Percent Error.
     # Get last "known" price, in order to predict whether or not we predicted the correct direction.
     # TODO: Threshold for this; e.g. +0.2%, -0.1%? Only use correct direction of the portfolio selection.
-    test_data['prediction_date'] =  self.train['date'].max()
-    test_data['adjusted_prc_last'] = self.train.loc[self.train['date'] == self.train['date'].max()]['adjusted_prc'].iloc[0]
-    test_data['correct_direction'] = ((test_data.adjusted_prc - test_data.adjusted_prc_last) * (test_data.adjusted_prc_pred - test_data.adjusted_prc_last) > 0) # Guessed Correct Direction.
+    test_data['adjusted_prc_train_end'] = self.train.loc[self.train['date'] == self.train['date'].max()]['adjusted_prc'].iloc[0]
+    test_data['correct_direction'] = ((test_data.adjusted_prc_actual - test_data.adjusted_prc_train_end) * (test_data.adjusted_prc_pred - test_data.adjusted_prc_train_end) > 0) # Guessed Correct Direction.
     # TODO: Potentially allow for non-normally distributed error.
-    test_data['within_pred_int'] = (((test_data.adjusted_prc_pred + 2 * test_data.std_dev) > test_data.adjusted_prc) &  ((test_data.adjusted_prc_pred - 2 * test_data.std_dev) < test_data.adjusted_prc)) #Actual within Confident Interval.
+    test_data['within_pred_int'] = (((test_data.adjusted_prc_pred + 2 * test_data.std_dev_pred) > test_data.adjusted_prc_actual) &  ((test_data.adjusted_prc_pred - 2 * test_data.std_dev_pred) < test_data.adjusted_prc_actual)) #Actual within Confident Interval.
 
-    # TODO: Potentially predict the volatility for each of the stocks. For the framework we can calculate explicitly.
-    # 6 months from now what is the predicted "volatility of the stock" => (Standard deviation of returns daily * root(N))
-    # => Log(returns)
+    test_data = test_data[
+      [
+        'permno', 'ticker', 'model', 'dataset', 'features', 'hypers', 'train_start',
+        'train_end', 'prediction_date', 'adjusted_prc_train_end', 'adjusted_prc_pred', 'std_dev_pred',
+        'adjusted_prc_actual', 'MSE', 'MAPE', 'correct_direction', 'within_pred_int'
+      ]
+    ]
 
-    test_data = test_data[['permno', 'ticker', 'model', 'hypers', 'date', 'adjusted_prc_last', 'adjusted_prc_pred', 'std_dev', 'adjusted_prc', 'MSE', 'MAPE', 'correct_direction', 'within_pred_int']]
     return test_data
 
   # TODO: Improve missing data handling. e.g. Every 6 months.
   def __interpolate_test(self, predictions):
     test_data = self.test
+
     test_data = test_data.set_index('date')
     test_data.index = pd.to_datetime(test_data.index)
     test_data.index = test_data.index.to_period("D")
@@ -81,6 +95,7 @@ class StockModelTrainer:
     max_date = self.test['date'].max()
     idx = pd.period_range(min_date, max_date)
     test_data = test_data.reindex(idx)
+
     # TODO: Logic to only forward fill.
     # Interpolate by finding the nearest value in case the first and the last value or NaN.
     test_data = test_data.ffill().bfill()

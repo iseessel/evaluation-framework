@@ -2,6 +2,8 @@ import numpy as np
 import pandas as pd
 from datetime import datetime, timedelta
 from stock_model_trainer import StockModelTrainer
+from google.cloud import bigquery
+import os
 
 class StockPredictions:
     """
@@ -36,6 +38,7 @@ class StockPredictions:
       self.offset = datetime.strptime(kwargs['offset'], '%Y-%m-%d').date()
       self.increments = kwargs['increments']
       self.evaluation_timeframe = sorted(kwargs['evaluation_timeframe'])
+      self.evaluation_table_id = kwargs['evaluation_table_id']
 
     def eval(self):
       timeframes = self.__get_stock_timeframes()
@@ -43,6 +46,7 @@ class StockPredictions:
       stock_data = self.__get_stock_data()
 
       # TODO: Opportunity to parallelize this.
+      stock_results = []
       for permno, timeframes in timeframes.items():
         stock_result = []
 
@@ -54,18 +58,40 @@ class StockPredictions:
             'train': train,
             'test': test,
             'evaluation_timeframe': self.evaluation_timeframe,
-            'hypers': self.hypers
+            'hypers': self.hypers,
+            'dataset': self.dataset
           }
 
           trainer = StockModelTrainer(**kwargs)
           trainer.fit()
           df = trainer.evaluate()
-          if len(stock_result) == 0:
-            stock_result.append(df.columns.values.tolist())
+          if len(stock_results) == 0:
+            stock_results.append(df.columns.values.tolist())
 
           stock_result = stock_result + df.values.tolist()
+          print(stock_result)
 
-      return pd.DataFrame(stock_result[1:], columns=stock_result[0])
+        stock_results = stock_results + stock_result
+
+      # Prepare evaluation data to be uploaded to Bigquery.
+      df = pd.DataFrame(stock_results[1:], columns=stock_results[0])
+
+      df.to_csv('temp.csv', index=False)
+      job_config = bigquery.LoadJobConfig(
+          source_format=bigquery.SourceFormat.CSV, skip_leading_rows=1,
+          autodetect=True,
+          write_disposition='WRITE_TRUNCATE'
+      )
+
+      with open('temp.csv', "rb") as source_file:
+          job = self.client.load_table_from_file(source_file, self.evaluation_table_id, job_config=job_config)
+
+      job.result()  # Waits for the job to complete.
+
+      os.remove("temp.csv")
+
+      return df
+
 
     # TODO: Decide whether or not to Retrieve this per stock (May run into memory constraints.)
     def __get_stock_data(self):
@@ -81,7 +107,6 @@ class StockPredictions:
         ORDER BY
             date
       """
-
 
       df = self.client.query(QUERY).to_dataframe()
 
