@@ -11,6 +11,7 @@ class FBProphet:
   def __init__(self, **kwargs):
     self.hypers = kwargs.get('hypers', {})
     self.trained_model = None
+    self.permnos = kwargs['permnos']
 
   """
     Fits the model with the test data.
@@ -43,8 +44,11 @@ class FBProphet:
 
     # Assume that the prediction is normally distributed with mean y. Hence std_dev = (yhat_upper - yhat_lower) / 4
     forecast['std_dev_pred'] = (forecast.yhat_upper - forecast.yhat_lower)/4
+    # FB Prophet can only support one permno.
+    forecast['permno'] = self.permnos[0]
     forecast.rename(columns={'yhat':'adjusted_prc_pred', 'ds': 'date'}, inplace=True)
-    forecast = forecast[['adjusted_prc_pred', 'date', 'std_dev_pred']]
+    # TODO: Add in Permno here as well.
+    forecast = forecast[['permno', 'date', 'adjusted_prc_pred', 'std_dev_pred',]]
 
     # Return only the periods we care about.
     return forecast.iloc[[x-1 for x in periods_ahead]]

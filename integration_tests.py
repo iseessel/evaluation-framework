@@ -18,7 +18,8 @@ args = {
     'increments': 180,
     'hypers': {},
     'evaluation_timeframe': [180],
-    'evaluation_table_id': 'silicon-badge-274423.stock_model_evaluation.fbprophet_sp_daily_features'
+    'evaluation_table_id': 'silicon-badge-274423.stock_model_evaluation.fbprophet_sp_daily_features',
+    'pooled': False
 }
 
 preds = StockPredictions(**args)

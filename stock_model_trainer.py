@@ -27,7 +27,7 @@ class StockModelTrainer:
   """
   def __init__(self, **kwargs):
     self.model = kwargs['model']
-    self.permno = kwargs['permno'] #TODO: Support pooled models using multiple stock data.
+    self.permnos = kwargs['permnos'] #TODO: Support pooled models using multiple stock data.
     self.train = kwargs['train']
     self.test = kwargs['test']
     self.evaluation_timeframe = sorted(kwargs['evaluation_timeframe'])
@@ -38,7 +38,7 @@ class StockModelTrainer:
     return self.model.fit(self.train)
 
   def evaluate(self):
-    print(f"Permno: {self.permno}.")
+    print(f"Permno: {self.permnos}.")
     print(f"Min Train Date: {str(self.train['date'].min())}.")
     print(f"Max Train Date: {str(self.train['date'].max())}.")
     print(f"Max Test Date: {str(self.test['date'].max())}.")
@@ -51,9 +51,9 @@ class StockModelTrainer:
 
     test_data['date'] = test_data.index.to_timestamp()
     test_data['adjusted_prc_actual'] = test_data['adjusted_prc']
-    test_data = pd.merge(test_data, predictions, on='date')
+    test_data = pd.merge(test_data, predictions, on=['date', 'permno'])
 
-    test_data['permno'] = self.permno
+    # test_data['permno'] = self.permno
     test_data['ticker'] = self.train['ticker'][self.train['ticker'].notnull()].iloc[0]
     test_data['model'] = self.model.__class__.__name__
     test_data['hypers'] = json.dumps(self.hypers)

@@ -39,40 +39,28 @@ class StockPredictions:
       self.increments = kwargs['increments']
       self.evaluation_timeframe = sorted(kwargs['evaluation_timeframe'])
       self.evaluation_table_id = kwargs['evaluation_table_id']
+      self.pooled = kwargs['pooled']
 
     def eval(self):
-      timeframes = self.__get_stock_timeframes()
+      if self.pooled:
+        self.__eval_multi_stock()
+      else:
+        self.__eval_single_stock()
 
-      stock_data = self.__get_stock_data()
+    def __create_stock_model_trainer(self, permnos, train, test):
+      kwargs = {
+        'model': self.model(hypers=self.hypers, permnos=permnos),
+        'permnos': permnos,
+        'train': train,
+        'test': test,
+        'evaluation_timeframe': self.evaluation_timeframe,
+        'hypers': self.hypers,
+        'dataset': self.dataset
+      }
 
-      # TODO: Opportunity to parallelize this.
-      stock_results = []
-      for permno, timeframes in timeframes.items():
-        stock_result = []
+      return StockModelTrainer(**kwargs)
 
-        for time in timeframes:
-          train, test = self.__get_train_test(stock_data, permno, self.start, time, self.evaluation_timeframe[-1])
-          kwargs = {
-            'model': self.model(**self.hypers),
-            'permno': permno,
-            'train': train,
-            'test': test,
-            'evaluation_timeframe': self.evaluation_timeframe,
-            'hypers': self.hypers,
-            'dataset': self.dataset
-          }
-
-          trainer = StockModelTrainer(**kwargs)
-          trainer.fit()
-          df = trainer.evaluate()
-          if len(stock_results) == 0:
-            stock_results.append(df.columns.values.tolist())
-
-          stock_result = stock_result + df.values.tolist()
-          print(stock_result)
-
-        stock_results = stock_results + stock_result
-
+    def __load_stock_results(stock_results):
       # Prepare evaluation data to be uploaded to Bigquery.
       df = pd.DataFrame(stock_results[1:], columns=stock_results[0])
 
@@ -92,6 +80,49 @@ class StockPredictions:
 
       return df
 
+    def __eval_multi_stock(self):
+      stock_data = self.__get_stock_data()
+
+      timeframes = self.__get_timeframes()
+      stock_results = []
+      for time in timeframes:
+        train, test = self.__get_train_test(stock_data, self.permnos, self.start, time, self.evaluation_timeframe[-1])
+        trainer = self.__create_stock_model_trainer(self.permnos, train, test)
+        trainer.fit()
+        df = trainer.evaluate()
+        if len(stock_results) == 0:
+          stock_results.append(df.columns.values.tolist())
+
+        stock_results = stock_results + df.values.tolist()
+        print(stock_result)
+
+      return __load_stock_results(stock_results)
+
+    def __eval_single_stock(self):
+      timeframes = self.__get_stock_timeframes()
+
+      stock_data = self.__get_stock_data()
+
+      # TODO: Opportunity to parallelize this.
+      # https://stackoverflow.com/questions/3033952/threading-pool-similar-to-the-multiprocessing-pool.
+      stock_results = []
+      for permno, timeframes in timeframes.items():
+        stock_result = []
+
+        for time in timeframes:
+          train, test = self.__get_train_test(stock_data, [permno], self.start, time, self.evaluation_timeframe[-1])
+          trainer = self.__create_stock_model_trainer([permno], train, test)
+          trainer.fit()
+          df = trainer.evaluate()
+          if len(stock_results) == 0:
+            stock_results.append(df.columns.values.tolist())
+
+          stock_result = stock_result + df.values.tolist()
+          print(stock_result)
+
+        stock_results = stock_results + stock_result
+
+      return __load_stock_results(stock_results)
 
     # TODO: Decide whether or not to Retrieve this per stock (May run into memory constraints.)
     def __get_stock_data(self):
@@ -113,7 +144,6 @@ class StockPredictions:
       #TODO: Memoize this.
       return df
 
-    # TODO: Cover case where we can train but we can't evaluate because we don't have the data.
     def __get_stock_timeframes(self):
       QUERY = f"""
         SELECT
@@ -142,10 +172,10 @@ class StockPredictions:
 
       return result
 
-    def __get_train_test(self, df, permno, start, end, last_pred_days):
+    def __get_train_test(self, df, permnos, start, end, last_pred_days):
       # Add 7 in case time occurrs on a holiday and/or weekend.
       eval_end = end + timedelta(days=last_pred_days + 7)
-      df = df[df['permno'] == permno]
+      df = df[df.permno.isin(permnos)]
 
       train = df[(df['date'] >= start) & (df['date'] <= end)]
       test = df[(df['date'] > end) & (df['date'] <= eval_end)]
