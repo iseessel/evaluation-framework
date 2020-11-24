@@ -148,30 +148,28 @@ class LSTMModel:
         return mod
 
     def fit(self, data):
-        trainset = self.CreateTrainData(data)
+      import pdb; pdb.set_trace()
+      trainset = self.CreateTrainData(data)
 #         num_features = trainset["Ret_Feat"].shape[-1]
-        num_features = trainset["Ret_Feat"].shape[-1] - 1
-        inputshape = (trainset["Features"].shape[1], num_features)
+      num_features = trainset["Ret_Feat"].shape[-1] - 1
+      inputshape = (trainset["Features"].shape[1], num_features)
 #         model = self.get_model(num_features)
-        model = self.get_model(inputshape)
+      model = self.get_model(inputshape)
 
-        # TODO: Potentially remove this -- when we want to train on the cloud.
-        callback = tf.keras.callbacks.ModelCheckpoint(filepath='baseline/RNN_model.h5',
-                                           monitor='mean_squared_error',
-                                           verbose=1,
-                                           save_best_only=True,
-                                           save_weights_only=False,
-                                           mode='auto',
-                                           save_freq='epoch')
+      # TODO: Potentially remove this -- when we want to train on the cloud.
+      callback = tf.keras.callbacks.ModelCheckpoint(filepath='baseline/RNN_model.h5',
+                                         monitor='mean_squared_error',
+                                         verbose=1,
+                                         save_best_only=True,
+                                         save_weights_only=False,
+                                         mode='auto',
+                                         save_freq='epoch')
 #         model.fit(stock_trainset[stock]["Ret_Feat"], stock_trainset[stock]["Label_Returns"], epochs = 10, batch_size = 64,callbacks=[callback])
-        # TODO: Experiment with # of epochs when more features.
-        model.fit(trainset["Returns"], trainset["Label_Returns"], epochs = 1, batch_size = 64,callbacks=[callback])
-        self.trained_model = model
-        print("Training Successful !")
-        return self
-
-#         raise('#fit method not yet implemented!')
-
+      # TODO: Experiment with # of epochs when more features.
+      model.fit(trainset["Returns"], trainset["Label_Returns"], epochs = 1, batch_size = 64,callbacks=[callback])
+      self.trained_model = model
+      print("Training Successful !")
+      return self
 
     def predict(self, periods_ahead, features=None, window_size = 50):
         pred_true = {}
@@ -194,7 +192,6 @@ class LSTMModel:
         df_price = data_lstm_test[price]
         df_target_test = df_price['adjusted_prc']
 
-
         """
         Scaling the training data
         """
@@ -212,7 +209,6 @@ class LSTMModel:
         test_price_scaled = scaler.fit_transform(test_set_price)
         test_set_scaled = scaler.fit_transform(test_set)
         target_set_test_scaled = scaler.fit_transform(target_set_test)
-
 
         """
         Creating testing data
@@ -236,6 +232,7 @@ class LSTMModel:
             X_test_price.append(test_price_scaled[i-window_size:i,:])
             final_dates.append(data_lstm_test['date'][i])
             # Target value is the price on day 50 + 1 i.e. 51st Day
+            # TODO: Make Y test Modular as per above.
             y_test.append(target_set_test_scaled[i,:])
 
         X_test, X_test_price, y_test = np.array(X_test), np.array(X_test_price), np.array(y_test)
@@ -277,6 +274,8 @@ class LSTMModel:
 
 #         predicted_stock_price = self.trained_model.predict(X_All_Features_Test)
 
+        # TODO: Add in other features here. X_All_Features_Test
+        import pdb; pdb.set_trace()
 
         ############# WHEN USING ONLY PRICE DATA ######################
         predicted_stock_price = self.trained_model.predict(X_test_price_returns)
@@ -298,6 +297,8 @@ class LSTMModel:
         dates_final = final_dates[:final_predicted_stock_price.shape[0]]
         print("Shape of Dates: ",np.array(dates_final).shape)
         print("Shape of Predictions: ",final_predicted_stock_price.shape)
+
+        import pdb; pdb.set_trace()
         df = pd.DataFrame({'adjusted_prc_pred':final_predicted_stock_price},index = pd.to_datetime(features['date'][window_size:len(features['date'])-1]))
 
 #         df['date'] = features['date'][window_size:len(features['date'])-1]

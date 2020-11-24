@@ -177,8 +177,14 @@ class StockPredictions:
       eval_end = end + timedelta(days=last_pred_days + 7)
       df = df[df.permno.isin(permnos)]
 
-      train = df[(df['date'] >= start) & (df['date'] <= end)]
-      test = df[(df['date'] > end) & (df['date'] <= eval_end)]
+      train = []
+      test = []
+
+      for permno in permnos:
+        train_permno = df[(df['date'] >= start) & (df['date'] <= end) & (df['permno'] == permno)]
+        test_permno = df[(df['date'] > end) & (df['date'] <= eval_end) & (df['permno'] == permno)]
+        train.append(train_permno)
+        test.append(test_permno)
 
       return train, test
 

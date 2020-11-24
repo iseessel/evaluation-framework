@@ -21,7 +21,7 @@ class FBProphet:
   """
   def fit(self, data):
     # Prepare the data for the FB Prophet train method.
-    prophet_df = data.copy(deep=True)
+    prophet_df = data[0].copy(deep=True)
     prophet_df.rename(columns={'adjusted_prc':'y', 'date': 'ds'}, inplace=True)
     prophet_df['ds'] = pd.to_datetime(prophet_df['ds'])
 
