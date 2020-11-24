@@ -52,8 +52,11 @@ class LSTMModel:
         elif len(features) > 1:
             train_set_lstm = df_train_lstm.values
         train_set_price_lstm = df_price.values.reshape(-1, 1)
+        # TODO: Do some research on whether or not we need to fit transform returns?
         train_set_price_scaled_lstm = scaler.fit_transform(train_set_price_lstm)
+        # TODO: Does it map by column name or by the 0th row.
         training_set_scaled_lstm = scaler.fit_transform(train_set_lstm)
+        # TODO: Should transform based on price_scaled_lstm
         train_target_set_scaled_lstm = scaler.fit_transform(train_target_set_lstm)
 
         self.stock_scaler[permno] = scaler
@@ -181,6 +184,7 @@ class LSTMModel:
       self.trained_model = model
       return self
 
+    # self.train
     def predict(self, periods_ahead, features=None, window_size = 50):
         #TODO: Test scalers are done appropriately.
         pred_true = {}
@@ -196,15 +200,16 @@ class LSTMModel:
         features_not_to_include = ['adjusted_prc','date','permno','ticker']
         price = ['adjusted_prc']
         ls_features = ['adjusted_vol']
-#         features = [col for col in data.columns if col not in features_not_to_include]
-#         data_lstm_test = data.copy(deep=True)
+        # TODO: Uncomment this line when passing in blacklisted features.
+        # ls_features = [col for col in data.columns if col not in features_not_to_include]
+        # data_lstm_test = data.copy(deep=True)
         data_lstm_test = features
         df_test = data_lstm_test[ls_features]
         df_price = data_lstm_test[price]
         df_target_test = df_price['adjusted_prc']
 
         """
-        Scaling the training data
+        Scaling the testing data.
         """
         # TODO: Get the scaler for the correct permno.
         scaler = self.stock_scaler
@@ -213,10 +218,12 @@ class LSTMModel:
 
         if len(ls_features) == 1:
             test_set = df_test.values.reshape(-1, 1)
-        elif len(ls_features) >1:
+        elif len(ls_features) > 1:
             test_set = df_test.values
         test_set_price = df_price.values.reshape(-1, 1)
 
+        import pdb; pdb.set_trace()
+        # TODO: Different transforms for future.
         test_price_scaled = scaler.fit_transform(test_set_price)
         test_set_scaled = scaler.fit_transform(test_set)
         target_set_test_scaled = scaler.fit_transform(target_set_test)
