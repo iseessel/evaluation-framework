@@ -18,10 +18,10 @@ class LSTMModel:
     def __init__(self, **kwargs):
 #         self.hypers = kwargs.get('hypers', {})
         self.trained_model = None
-        self.stock_scaler = None
+        self.stock_scaler = {}
         self.permnos = kwargs['permnos']
 
-    def CreateTrainData(self,data,window_size = 50):
+    def CreateTrainData(self,data,permno,window_size = 50):
         trainset = {}
         """
         Target is our label, which is adjusted_prc
@@ -56,7 +56,7 @@ class LSTMModel:
         training_set_scaled_lstm = scaler.fit_transform(train_set_lstm)
         train_target_set_scaled_lstm = scaler.fit_transform(train_target_set_lstm)
 
-        self.stock_scaler = scaler
+        self.stock_scaler[permno] = scaler
 #         stock_scaler[stock] = scaler
 
         """
@@ -148,12 +148,12 @@ class LSTMModel:
         return mod
 
     def fit(self, data):
-      import pdb; pdb.set_trace()
-      trainset = self.CreateTrainData(data)
-#         num_features = trainset["Ret_Feat"].shape[-1]
+      # Number of features and input shape shouldn't change -- therefore we can use the first dataframe for shape.
+      trainset = self.CreateTrainData(data[0], data[0].permno[0])
+      #         num_features = trainset["Ret_Feat"].shape[-1]
       num_features = trainset["Ret_Feat"].shape[-1] - 1
       inputshape = (trainset["Features"].shape[1], num_features)
-#         model = self.get_model(num_features)
+      # Create one model for all stocks as this is a "pooled-stock" model.
       model = self.get_model(inputshape)
 
       # TODO: Potentially remove this -- when we want to train on the cloud.
@@ -164,14 +164,25 @@ class LSTMModel:
                                          save_weights_only=False,
                                          mode='auto',
                                          save_freq='epoch')
-#         model.fit(stock_trainset[stock]["Ret_Feat"], stock_trainset[stock]["Label_Returns"], epochs = 10, batch_size = 64,callbacks=[callback])
-      # TODO: Experiment with # of epochs when more features.
-      model.fit(trainset["Returns"], trainset["Label_Returns"], epochs = 1, batch_size = 64,callbacks=[callback])
+
+      for permno_data in data:
+        trainset = self.CreateTrainData(permno_data, permno_data.permno[0])
+  #         num_features = trainset["Ret_Feat"].shape[-1]
+        num_features = trainset["Ret_Feat"].shape[-1] - 1
+        inputshape = (trainset["Features"].shape[1], num_features)
+  #         model = self.get_model(num_features)
+
+  #         model.fit(stock_trainset[stock]["Ret_Feat"], stock_trainset[stock]["Label_Returns"], epochs = 10, batch_size = 64,callbacks=[callback])
+        # TODO: Experiment with # of epochs when more features.
+        model.fit(trainset["Returns"], trainset["Label_Returns"], epochs = 1, batch_size = 64,callbacks=[callback])
+        # print(permno_data)
+        print(f"Training Successful for { permno_data.permno[0] }")
+
       self.trained_model = model
-      print("Training Successful !")
       return self
 
     def predict(self, periods_ahead, features=None, window_size = 50):
+        #TODO: Test scalers are done appropriately.
         pred_true = {}
 
         """
@@ -195,7 +206,7 @@ class LSTMModel:
         """
         Scaling the training data
         """
-
+        # TODO: Get the scaler for the correct permno.
         scaler = self.stock_scaler
         # Reshaping because it only have one dimension, so error is thrown
         target_set_test = df_target_test.values.reshape(-1, 1)
