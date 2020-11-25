@@ -21,6 +21,7 @@ class LSTMModel:
         self.trained_model = None
         self.stock_scaler = {}
         self.permnos = kwargs['permnos']
+        self.options = kwargs.get('options',{})
 
     def CreateTrainData(self,data,permno,window_size = 50):
         trainset = {}
@@ -82,14 +83,16 @@ class LSTMModel:
         X_train_price_lstm = []
         y_train_lstm = []
 
-        for i in range(window_size,len(train_set_lstm)):
+        # Prediction offset to get the days ahead price
+        prediction_offset = self.options['prediction_offset'] - 1
+        for i in range(window_size,len(train_set_lstm) - prediction_offset):
             # Taking 50 day data for training
             X_train_lstm.append(training_set_scaled_lstm[i-window_size:i,:])
             X_train_price_lstm.append(train_set_price_lstm[i-window_size:i,:])
 
             # Target value is the price on day 50 + 1 i.e. 51st Day
             # TODO: Add in days ahead calculation for this.
-            y_train_lstm.append(train_target_set_lstm[i,:])
+            y_train_lstm.append(train_target_set_lstm[i + prediction_offset,:])
 
         # NOt creating a numpy array, difficulty in passing to dataframe while creating one
         X_train_lstm, X_train_price_lstm, y_train_lstm = np.array(X_train_lstm), np.array(X_train_price_lstm), np.array(y_train_lstm)
@@ -129,6 +132,7 @@ class LSTMModel:
 
         trainset["Ret_Feat"] = np.array(all_features)
         trainset['date'] = df_date
+
         return trainset
 
 #     def get_model(self,num_features):
@@ -203,7 +207,7 @@ class LSTMModel:
 
         model.fit(X_train, Y_train, epochs=2, batch_size=64)
 
-        print(f"Training Successful for ALL STOCKS from {merged_stock_df['date'].max()} to {merged_stock_df['date'].max()}! HURRAYYY !")
+        print(f"Training Successful for ALL STOCKS from {merged_stock_df['date'].min()} to {merged_stock_df['date'].max()}! HURRAYYY !")
 
         self.trained_model = model
         return self
@@ -246,7 +250,7 @@ class LSTMModel:
             test_set = df_test.values
         test_set_price = df_price.values.reshape(-1, 1)
 
-        import pdb; pdb.set_trace()
+        # import pdb; pdb.set_trace()
         # TODO: Different transforms for future.
         # test_price_scaled = scaler.fit_transform(test_set_price)
         # TODO: transform instead of fit_transform to let go of overfit/leak
@@ -269,14 +273,17 @@ class LSTMModel:
         X_test_price = []
         y_test = []
         final_dates = []
-        for i in range(window_size,len(test_set)):
+        # Number of days ahead for which you want the prediction.
+        prediction_offset = self.options['prediction_offset'] - 1
+        for i in range(window_size,len(test_set) - prediction_offset):
             # Taking 50 day data for training
             X_test.append(test_set_scaled[i-window_size:i,:])
             X_test_price.append(test_set_price[i-window_size:i,:])
             final_dates.append(data_lstm_test['date'][i])
             # Target value is the price on day 50 + 1 i.e. 51st Day
             # TODO: Make Y test Modular as per above.
-            y_test.append(target_set_test[i,:])
+
+            y_test.append(target_set_test[i + prediction_offset,:])
 
         X_test, X_test_price, y_test = np.array(X_test), np.array(X_test_price), np.array(y_test)
         print(X_test.shape)

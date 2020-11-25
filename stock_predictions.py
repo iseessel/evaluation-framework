@@ -49,7 +49,7 @@ class StockPredictions:
 
     def __create_stock_model_trainer(self, permnos, train, test):
       kwargs = {
-        'model': self.model(hypers=self.hypers, permnos=permnos),
+        'model': self.model(hypers=self.hypers, permnos=permnos, options={'prediction_offset':180}),
         'permnos': permnos,
         'train': train,
         'test': test,
