@@ -13,6 +13,7 @@ from tensorflow.keras.layers import Dense
 from tensorflow.keras.layers import LSTM
 from tensorflow.keras.layers import Dropout
 import tensorflow as tf
+import pdb;
 
 class LSTMModel:
     def __init__(self, **kwargs):
@@ -39,6 +40,7 @@ class LSTMModel:
         df_train_lstm = data_lstm[features]
         df_price = data_lstm[price]
         df_train_target_lstm = df_price['adjusted_prc']
+        df_date = data['date'][:-window_size]
         """
         Scaling the training data
         """
@@ -53,11 +55,13 @@ class LSTMModel:
             train_set_lstm = df_train_lstm.values
         train_set_price_lstm = df_price.values.reshape(-1, 1)
         # TODO: Do some research on whether or not we need to fit transform returns?
-        train_set_price_scaled_lstm = scaler.fit_transform(train_set_price_lstm)
+        # NOt scaling price
+        # train_set_price_scaled_lstm = scaler.fit_transform(train_set_price_lstm)
         # TODO: Does it map by column name or by the 0th row.
         training_set_scaled_lstm = scaler.fit_transform(train_set_lstm)
         # TODO: Should transform based on price_scaled_lstm
-        train_target_set_scaled_lstm = scaler.fit_transform(train_target_set_lstm)
+        # NOt scaling price
+        # train_target_set_scaled_lstm = scaler.fit_transform(train_target_set_lstm)
 
         self.stock_scaler[permno] = scaler
 #         stock_scaler[stock] = scaler
@@ -81,12 +85,13 @@ class LSTMModel:
         for i in range(window_size,len(train_set_lstm)):
             # Taking 50 day data for training
             X_train_lstm.append(training_set_scaled_lstm[i-window_size:i,:])
-            X_train_price_lstm.append(train_set_price_scaled_lstm[i-window_size:i,:])
+            X_train_price_lstm.append(train_set_price_lstm[i-window_size:i,:])
 
             # Target value is the price on day 50 + 1 i.e. 51st Day
             # TODO: Add in days ahead calculation for this.
-            y_train_lstm.append(train_target_set_scaled_lstm[i,:])
+            y_train_lstm.append(train_target_set_lstm[i,:])
 
+        # NOt creating a numpy array, difficulty in passing to dataframe while creating one
         X_train_lstm, X_train_price_lstm, y_train_lstm = np.array(X_train_lstm), np.array(X_train_price_lstm), np.array(y_train_lstm)
         print(X_train_lstm.shape)
         print(X_train_price_lstm.shape)
@@ -123,6 +128,7 @@ class LSTMModel:
 
 
         trainset["Ret_Feat"] = np.array(all_features)
+        trainset['date'] = df_date
         return trainset
 
 #     def get_model(self,num_features):
@@ -151,38 +157,56 @@ class LSTMModel:
         return mod
 
     def fit(self, data):
-      # Number of features and input shape shouldn't change -- therefore we can use the first dataframe for shape.
-      trainset = self.CreateTrainData(data[0], data[0].permno[0])
-      #         num_features = trainset["Ret_Feat"].shape[-1]
-      num_features = trainset["Ret_Feat"].shape[-1] - 1
-      inputshape = (trainset["Features"].shape[1], num_features)
-      # Create one model for all stocks as this is a "pooled-stock" model.
-      model = self.get_model(inputshape)
+        # Number of features and input shape shouldn't change -- therefore we can use the first dataframe for shape.
+        trainset = self.CreateTrainData(data[0], data[0].permno[0])
 
-      # TODO: Potentially remove this -- when we want to train on the cloud.
-      callback = tf.keras.callbacks.ModelCheckpoint(filepath='baseline/RNN_model.h5',
-                                         monitor='mean_squared_error',
-                                         verbose=1,
-                                         save_best_only=True,
-                                         save_weights_only=False,
-                                         mode='auto',
-                                         save_freq='epoch')
-
-      for permno_data in data:
-        trainset = self.CreateTrainData(permno_data, permno_data.permno[0])
-  #         num_features = trainset["Ret_Feat"].shape[-1]
         num_features = trainset["Ret_Feat"].shape[-1] - 1
         inputshape = (trainset["Features"].shape[1], num_features)
-  #         model = self.get_model(num_features)
 
-  #         model.fit(stock_trainset[stock]["Ret_Feat"], stock_trainset[stock]["Label_Returns"], epochs = 10, batch_size = 64,callbacks=[callback])
+        # Create one model for all stocks as this is a "pooled-stock" model.
+        model = self.get_model(inputshape)
+
+        # TODO: Potentially remove this -- when we want to train on the cloud.
+        # callback = tf.keras.callbacks.ModelCheckpoint(filepath='baseline/RNN_model.h5',
+        #                                    monitor='mean_squared_error',
+        #                                    verbose=1,
+        #                                    save_best_only=True,
+        #                                    save_weights_only=False,
+        #                                    mode='auto',
+        #                                    save_freq='epoch')
+
+        permno_train_dic = {}
+        for permno_data in data:
+            # The permno for stock
+            permno_string = permno_data.permno[0]
+            trainset = self.CreateTrainData(permno_data, permno_string)
+            permno_train_dic[permno_string] = trainset
+
+        merged_stock_array = []
+
+        for permno in permno_train_dic.keys():
+            trainset = permno_train_dic[permno]
+            for date, features, label in zip(trainset['date'],trainset['Returns'],trainset['Label_Returns']):
+                merged_stock_array.append([date, features, label])
+
+        merged_stock_array.sort(key = lambda x: x[0])
+        merged_stock_df = pd.DataFrame(merged_stock_array,columns=['date','features','label'])
+
+        num_features = trainset["Ret_Feat"].shape[-1] - 1
+        inputshape = (trainset["Features"].shape[1], num_features)
+
+        X_train = np.array(merged_stock_df["features"].tolist())
+        Y_train = np.array(merged_stock_df["label"].tolist())
+
         # TODO: Experiment with # of epochs when more features.
-        model.fit(trainset["Returns"], trainset["Label_Returns"], epochs = 1, batch_size = 64,callbacks=[callback])
-        # print(permno_data)
-        print(f"Training Successful for { permno_data.permno[0] }")
+        # model.fit(X_train, Y_train, epochs = 1, batch_size = 64,callbacks=[callback])
 
-      self.trained_model = model
-      return self
+        model.fit(X_train, Y_train, epochs=2, batch_size=64)
+
+        print(f"Training Successful for ALL STOCKS from {merged_stock_df['date'].max()} to {merged_stock_df['date'].max()}! HURRAYYY !")
+
+        self.trained_model = model
+        return self
 
     # self.train
     def predict(self, periods_ahead, features=None, window_size = 50):
@@ -224,9 +248,10 @@ class LSTMModel:
 
         import pdb; pdb.set_trace()
         # TODO: Different transforms for future.
-        test_price_scaled = scaler.fit_transform(test_set_price)
+        # test_price_scaled = scaler.fit_transform(test_set_price)
+        # TODO: transform instead of fit_transform to let go of overfit/leak
         test_set_scaled = scaler.fit_transform(test_set)
-        target_set_test_scaled = scaler.fit_transform(target_set_test)
+        # target_set_test_scaled = scaler.fit_transform(target_set_test)
 
         """
         Creating testing data
@@ -247,11 +272,11 @@ class LSTMModel:
         for i in range(window_size,len(test_set)):
             # Taking 50 day data for training
             X_test.append(test_set_scaled[i-window_size:i,:])
-            X_test_price.append(test_price_scaled[i-window_size:i,:])
+            X_test_price.append(test_set_price[i-window_size:i,:])
             final_dates.append(data_lstm_test['date'][i])
             # Target value is the price on day 50 + 1 i.e. 51st Day
             # TODO: Make Y test Modular as per above.
-            y_test.append(target_set_test_scaled[i,:])
+            y_test.append(target_set_test[i,:])
 
         X_test, X_test_price, y_test = np.array(X_test), np.array(X_test_price), np.array(y_test)
         print(X_test.shape)
@@ -308,7 +333,8 @@ class LSTMModel:
         final_preds = np.array(final_preds)
         final_true_target = np.array(final_true_target)
 
-        final_predicted_stock_price = scaler.inverse_transform(final_preds)
+        # NOt scaling price
+        # final_predicted_stock_price = scaler.inverse_transform(final_preds)
         final_predicted_stock_price = final_predicted_stock_price.reshape(-1)
 
 #         dates_final = features['date'][window_size:]
