@@ -12,6 +12,7 @@ class FBProphet:
     self.hypers = kwargs.get('hypers', {})
     self.trained_model = None
     self.permnos = kwargs['permnos']
+    self.train = kwargs['train']
 
   """
     Fits the model with the test data.
@@ -19,9 +20,9 @@ class FBProphet:
     :param data: Pandas Dataframe. Column date(type: datetime) and adjusted_prc(type: float).
     :return: self
   """
-  def fit(self, data):
+  def fit(self):
     # Prepare the data for the FB Prophet train method.
-    prophet_df = data[0].copy(deep=True)
+    prophet_df = self.train[0].copy(deep=True)
     prophet_df.rename(columns={'adjusted_prc':'y', 'date': 'ds'}, inplace=True)
     prophet_df['ds'] = pd.to_datetime(prophet_df['ds'])
 

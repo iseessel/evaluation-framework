@@ -35,7 +35,7 @@ class StockModelTrainer:
     self.dataset = kwargs['dataset']
 
   def fit(self):
-    return self.model.fit(self.train)
+    return self.model.fit()
 
   def evaluate(self):
     evaluation_df = pd.DataFrame()

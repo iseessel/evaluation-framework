@@ -21,6 +21,7 @@ class LSTMModel:
         self.trained_model = None
         self.stock_scaler = {}
         self.permnos = kwargs['permnos']
+        self.train = kwargs['train']
         self.options = kwargs.get('options',{})
 
     def CreateTrainData(self,data,permno,window_size = 50):
@@ -160,9 +161,9 @@ class LSTMModel:
 
         return mod
 
-    def fit(self, data):
+    def fit(self):
         # Number of features and input shape shouldn't change -- therefore we can use the first dataframe for shape.
-        trainset = self.CreateTrainData(data[0], data[0].permno[0])
+        trainset = self.CreateTrainData(self.train[0], self.train[0].permno[0])
 
         num_features = trainset["Ret_Feat"].shape[-1] - 1
         inputshape = (trainset["Features"].shape[1], num_features)
@@ -180,7 +181,7 @@ class LSTMModel:
         #                                    save_freq='epoch')
 
         permno_train_dic = {}
-        for permno_data in data:
+        for permno_data in self.train:
             # The permno for stock
             permno_string = permno_data.permno[0]
             trainset = self.CreateTrainData(permno_data, permno_string)
