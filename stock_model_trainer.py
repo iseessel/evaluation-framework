@@ -1,6 +1,7 @@
 import pandas as pd
 from datetime import datetime, timedelta, timezone
 import json
+import pdb
 
 class StockModelTrainer:
   """
@@ -95,8 +96,8 @@ class StockModelTrainer:
     test_data.index = pd.to_datetime(test_data.index)
     test_data.index = test_data.index.to_period("D")
 
-    min_date = self.test['date'].min()
-    max_date = self.test['date'].max()
+    min_date = test_data.index.min()
+    max_date = test_data.index.max()
     idx = pd.period_range(min_date, max_date)
     test_data = test_data.reindex(idx)
 
