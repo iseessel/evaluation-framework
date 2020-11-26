@@ -200,4 +200,3 @@ kwargs = {
   'correlation_lag': 180
 }
 sp = StockPicker(**kwargs)
-import pdb; pdb.set_trace()

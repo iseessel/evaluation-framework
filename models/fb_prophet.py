@@ -53,36 +53,3 @@ class FBProphet:
 
     # Return only the periods we care about.
     return forecast.iloc[[x-1 for x in periods_ahead]]
-
-"""
-Training FB Prophet on the aapl stock.
-"""
-
-QUERY = f"""
-  SELECT
-      DISTINCT permno
-  FROM
-      `silicon-badge-274423.features.sp_daily_features`
-"""
-client = bigquery.Client(project='silicon-badge-274423')
-permnos = client.query(QUERY).to_dataframe()['permno'].tolist()
-dataset = 'silicon-badge-274423.features.sp_daily_features'
-
-args = {
-    'client': bigquery.Client(project='silicon-badge-274423'),
-    'model': FBProphet,
-    'permnos': permnos,
-    'dataset': dataset,
-    'features': ['adjusted_prc'],
-    'start': '1980-01-01',
-    'end': '2019-12-31',
-    'offset': '2000-01-01',
-    'increments': 180,
-    'hypers': {},
-    'evaluation_timeframe': [180],
-   'evaluation_table_id': 'silicon-badge-274423.stock_model_evaluation.fbprophet_sp_daily_features',
-    'pooled': False
-}
-
-preds = StockPredictions(**args)
-eval = preds.eval()
