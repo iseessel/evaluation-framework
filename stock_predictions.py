@@ -60,7 +60,7 @@ class StockPredictions:
 
       return StockModelTrainer(**kwargs)
 
-    def __load_stock_results(stock_results):
+    def __load_stock_results(self, stock_results):
       # Prepare evaluation data to be uploaded to Bigquery.
       df = pd.DataFrame(stock_results[1:], columns=stock_results[0])
 
@@ -94,8 +94,9 @@ class StockPredictions:
         if len(stock_results) == 0:
           stock_results.append(df.columns.values.tolist())
 
+        import pdb; pdb.set_trace()
         stock_results = stock_results + df.values.tolist()
-        print(stock_result)
+        print(stock_results)
 
       return self.__load_stock_results(stock_results)
 

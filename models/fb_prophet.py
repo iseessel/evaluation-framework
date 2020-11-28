@@ -49,7 +49,7 @@ class FBProphet:
     forecast['permno'] = self.permnos[0]
     forecast.rename(columns={'yhat':'adjusted_prc_pred', 'ds': 'date'}, inplace=True)
     # TODO: Add in Permno here as well.
-    forecast = forecast[['permno', 'date', 'adjusted_prc_pred', 'std_dev_pred',]]
+    forecast = forecast[['permno', 'date', 'adjusted_prc_pred', 'std_dev_pred']]
 
     # Return only the periods we care about.
     return forecast.iloc[[x-1 for x in periods_ahead]]
