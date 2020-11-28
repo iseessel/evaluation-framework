@@ -80,6 +80,7 @@ class StockPredictions:
 
       return df
 
+    # TODO: Test loading and stuff
     def __eval_multi_stock(self):
       stock_data = self.__get_stock_data()
 
@@ -96,7 +97,7 @@ class StockPredictions:
         stock_results = stock_results + df.values.tolist()
         print(stock_result)
 
-      return __load_stock_results(stock_results)
+      return self.__load_stock_results(stock_results)
 
     def __eval_single_stock(self):
       timeframes = self.__get_stock_timeframes()
@@ -122,7 +123,7 @@ class StockPredictions:
 
         stock_results = stock_results + stock_result
 
-      return __load_stock_results(stock_results)
+      return self.__load_stock_results(stock_results)
 
     # TODO: Decide whether or not to Retrieve this per stock (May run into memory constraints.)
     def __get_stock_data(self):
