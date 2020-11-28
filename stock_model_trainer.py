@@ -47,7 +47,7 @@ class StockModelTrainer:
       print(f"Max Train Date: {str(train_data['date'].max())}.")
       print(f"Max Test Date: {str(test_data['date'].max())}.")
 
-      predictions = self.model.predict(self.evaluation_timeframe, features=train_data)
+      predictions = self.model.predict(self.evaluation_timeframe)
 
       # Collate the predictions with the test data.
       test_data = self.__interpolate_test(predictions, test_data)
