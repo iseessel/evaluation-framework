@@ -78,10 +78,9 @@ class StockModelTrainer:
       test_data['correct_direction'] = ((test_data.adjusted_prc_actual - test_data.adjusted_prc_train_end) * (test_data.adjusted_prc_pred - test_data.adjusted_prc_train_end) > 0) # Guessed Correct Direction.
       # TODO: Potentially allow for non-normally distributed error.
       test_data['within_pred_int'] = (((test_data.adjusted_prc_pred + 2 * test_data.std_dev_pred) > test_data.adjusted_prc_actual) &  ((test_data.adjusted_prc_pred - 2 * test_data.std_dev_pred) < test_data.adjusted_prc_actual)) #Actual within Confident Interval.
-      import pdb; pdb.set_trace()
+
       evaluation_df = evaluation_df.append(test_data)
 
-    import pdb; pdb.set_trace()
     evaluation_df = evaluation_df[
       [
         'permno', 'ticker', 'model', 'dataset', 'features', 'hypers', 'train_start',
@@ -90,7 +89,9 @@ class StockModelTrainer:
       ]
     ]
 
-    return evaluation_df
+    # TODO: Was getting duplicate bug. Revisit this.
+    print(evaluation_df.drop_duplicates())
+    return evaluation_df.drop_duplicates()
 
   # TODO: Improve missing data handling. e.g. Every 6 months.
   def __interpolate_test(self, predictions, test_data):

@@ -91,12 +91,11 @@ class StockPredictions:
         trainer = self.__create_stock_model_trainer(self.permnos, train, test)
         trainer.fit()
         df = trainer.evaluate()
+
         if len(stock_results) == 0:
           stock_results.append(df.columns.values.tolist())
 
-        import pdb; pdb.set_trace()
         stock_results = stock_results + df.values.tolist()
-        print(stock_results)
 
       return self.__load_stock_results(stock_results)
 
@@ -114,13 +113,13 @@ class StockPredictions:
         for time in timeframes:
           train, test = self.__get_train_test(stock_data, [permno], self.start, time, self.evaluation_timeframe[-1])
           trainer = self.__create_stock_model_trainer([permno], train, test)
+
           trainer.fit()
           df = trainer.evaluate()
           if len(stock_results) == 0:
             stock_results.append(df.columns.values.tolist())
 
           stock_result = stock_result + df.values.tolist()
-          print(stock_result)
 
         stock_results = stock_results + stock_result
 
