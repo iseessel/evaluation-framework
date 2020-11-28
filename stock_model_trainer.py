@@ -52,9 +52,11 @@ class StockModelTrainer:
 
       # Collate the predictions with the test data.
       test_data = self.__interpolate_test(predictions, test_data)
-      test_data = test_data.loc[predictions['date'].dt.strftime('%Y-%m-%d')]
+      test_data.index = test_data.index.astype('datetime64')
+      test_data = test_data.loc[predictions['date']]
+      # test_data = test_data.loc[predictions['date'].dt.strftime('%Y-%m-%d')]
 
-      test_data['date'] = test_data.index.to_timestamp()
+      test_data['date'] = test_data.index
       test_data['adjusted_prc_actual'] = test_data['adjusted_prc']
       test_data = pd.merge(test_data, predictions, on=['date', 'permno'])
 

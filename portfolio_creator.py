@@ -30,9 +30,8 @@ class PortfolioCreator:
       stock_picker = self.stock_picker(**kwargs)
       stock_picks = stock_picker.pick()
       all_stock_picks[name.strftime('%Y-%m-%d')] = stock_picks
-      import pdb; pdb.set_trace()
 
-      # TODO: Save stock predictions in bigquery.
+    # TODO: Save stock predictions in bigquery.
 
 kwargs = {
   'stock_picker': NonLinearOptimization,

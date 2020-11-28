@@ -1,9 +1,14 @@
-FROM python:3.8.5
+FROM lppier/docker-prophet
 
-WORKDIR /models
 ENV GOOGLE_APPLICATION_CREDENTIALS="service-account.json"
-COPY requirements.txt ./
-RUN pip install --no-cache-dir -r requirements.txt
+
+RUN apt-get update
+RUN apt-get -y install vim
+RUN pip install google-cloud-bigquery
+RUN pip install sklearn
+RUN pip install tensorflow
+RUN pip install pyarrow
+RUN pip install google-cloud-bigquery-storage
 
 COPY . .
 
