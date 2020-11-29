@@ -7,8 +7,6 @@
 
 # COPY . .
 
-# CMD [ "python", "fb_prophet.py" ]
-
 FROM lppier/docker-prophet
 
 ENV GOOGLE_APPLICATION_CREDENTIALS="service-account.json"
