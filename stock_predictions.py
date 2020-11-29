@@ -183,7 +183,6 @@ class StockPredictions:
       test = []
       i = 0
       for permno in permnos:
-        print(f"Done with: {i}")
         i = i + 1
         train_permno = df[(df['date'] >= start) & (df['date'] <= end) & (df['permno'] == permno)].reset_index()
         test_permno = df[(df['date'] > end) & (df['date'] <= eval_end) & (df['permno'] == permno)].reset_index()

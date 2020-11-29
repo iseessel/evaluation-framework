@@ -8,6 +8,7 @@ from sklearn.model_selection import train_test_split
 import numpy as np
 import pandas as pd
 from sklearn.preprocessing import MinMaxScaler
+from tensorflow.keras import backend as K
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Dense
 from tensorflow.keras.layers import LSTM
@@ -19,11 +20,12 @@ import pdb
 class LSTMModel:
     def __init__(self, **kwargs):
         # self.hypers = kwargs.get('hypers', {})
-        self.trained_model = None
+        self.trained_model = {}
         self.stock_scaler = {}
         self.permnos = kwargs['permnos']
         self.train = kwargs['train']
         self.options = kwargs.get('options',{})
+        self.quantiles = [0.05, 0.5, 0.95]
 
     def CreateTrainData(self, data, permno, window_size = 50):
         trainset = {}
@@ -136,7 +138,7 @@ class LSTMModel:
 
         return trainset
 
-    def get_model(self, inputshape):
+    def get_model(self, inputshape, quantile):
         mod=Sequential()
         # mod.add(LSTM(units = 64, return_sequences = True, input_shape = (X_train_lstm.shape[1], 2)))
         # mod.add(LSTM(units = 64, return_sequences = True, input_shape = (X_train_lstm.shape[1], num_features)))
@@ -155,20 +157,26 @@ class LSTMModel:
         mod.add(BatchNormalization())
         # mod.add((Dense(units = 4, activation='tanh')))
         mod.add((Dense(units = 1, activation='tanh')))
-        mod.compile(loss='mean_squared_error', optimizer='adam', metrics=['accuracy','mean_squared_error'])
+        mod.compile(loss=lambda y,f: self.__tilted_loss(quantile,y,f), optimizer='adam', metrics=['accuracy','mean_squared_error'])
         mod.summary()
 
         return mod
 
-    def fit(self):
-        # TODO: Fix this.
-        # Number of features and input shape shouldn't change -- therefore we can use the first dataframe for shape.
-        trainset = self.CreateTrainData(self.train[0], self.train[0].permno[0])
-        num_features = trainset["Ret_Feat"].shape[-1] - 1
-        inputshape = (trainset["Features"].shape[1], num_features)
+    def __tilted_loss(self, q,y,f):
+        e = (y-f)
+        return K.mean(K.maximum(q*e, (q-1)*e), axis=-1)
 
+
+    def fit(self):
+      # TODO: Fix this.
+      # Number of features and input shape shouldn't change -- therefore we can use the first dataframe for shape.
+      trainset = self.CreateTrainData(self.train[0], self.train[0].permno[0])
+      num_features = trainset["Ret_Feat"].shape[-1] - 1
+      inputshape = (trainset["Features"].shape[1], num_features)
+
+      for quantile in self.quantiles:
         # Create one model for all stocks as this is a "pooled-stock" model.
-        model = self.get_model(inputshape)
+        model = self.get_model(inputshape, quantile)
 
         # TODO: Potentially remove this -- when we want to train on the cloud.
         # callback = tf.keras.callbacks.ModelCheckpoint(filepath='baseline/RNN_model.h5',
@@ -211,8 +219,9 @@ class LSTMModel:
 
         print(f"Training Successful for ALL STOCKS from {merged_stock_df['date'].min()} to {merged_stock_df['date'].max()}! HURRAYYY !")
 
-        self.trained_model = model
-        return self
+        self.trained_model[quantile] = model
+
+      return self
 
     def ___prices_to_returns(self, window_price_data):
         # TODO: Support multiple predictions per permno.
@@ -260,76 +269,83 @@ class LSTMModel:
       return testset
 
     def predict(self, periods_ahead, window_size = 50):
-        #TODO: Centralize this, to be the same list in CreateTrain and here
-        features_not_to_include = ['adjusted_prc', 'date', 'permno', 'ticker']
-        # ls_features = [col for col in data.columns if col not in features_not_to_include]
-        price = ['adjusted_prc']
-        ls_features = ['adjusted_vol']
+      #TODO: Centralize this, to be the same list in CreateTrain and here
+      features_not_to_include = ['adjusted_prc', 'date', 'permno', 'ticker']
+      # ls_features = [col for col in data.columns if col not in features_not_to_include]
+      price = ['adjusted_prc']
+      ls_features = ['adjusted_vol']
 
-        permno_test_dic = {}
-        first_permno_price = {}
-        for permno_data in self.train:
-            permno_string = permno_data.permno[0]
-            # The permno for stock
-            permno_data = permno_data.sort_values(by=['date'])
-            last_test_window = permno_data[-window_size:]
-            min_date = last_test_window.date.min()
+      permno_test_dic = {}
+      first_permno_price = {}
+      for permno_data in self.train:
+          permno_string = permno_data.permno[0]
+          # The permno for stock
+          permno_data = permno_data.sort_values(by=['date'])
+          last_test_window = permno_data[-window_size:]
+          min_date = last_test_window.date.min()
 
-            key = str(min_date) + ',' +str(permno_string)
-            permno_dic = {}
-            permno_dic['adjusted_prc'] = last_test_window[last_test_window['date'] == min_date]['adjusted_prc'].iloc[0]
-            permno_dic['last_date'] = last_test_window.date.max()
-            first_permno_price[key] = permno_dic
+          key = str(min_date) + ',' +str(permno_string)
+          permno_dic = {}
+          permno_dic['adjusted_prc'] = last_test_window[last_test_window['date'] == min_date]['adjusted_prc'].iloc[0]
+          permno_dic['last_date'] = last_test_window.date.max()
+          first_permno_price[key] = permno_dic
 
-            testset = self.___create_last_window_data(last_test_window, ls_features)
+          testset = self.___create_last_window_data(last_test_window, ls_features)
 
-            # Ret_Feat numpy (50, 2)
-            # Feat numpy (50, 1): just volume
-            # date: dataframe.
-            # Returns numpy (50, 1)
-            permno_test_dic[permno_string] = testset
+          # Ret_Feat numpy (50, 2)
+          # Feat numpy (50, 1): just volume
+          # date: dataframe.
+          # Returns numpy (50, 1)
+          permno_test_dic[permno_string] = testset
 
-        merged_stock_array = []
+      merged_stock_array = []
 
-        for permno in permno_test_dic.keys():
-            testset = permno_test_dic[permno]
-            for date, returns, ret_feat in zip(testset['date'], testset['Returns'], testset['Ret_Feat']):
-                merged_stock_array.append([date, returns, ret_feat, permno])
+      for permno in permno_test_dic.keys():
+          testset = permno_test_dic[permno]
+          for date, returns, ret_feat in zip(testset['date'], testset['Returns'], testset['Ret_Feat']):
+              merged_stock_array.append([date, returns, ret_feat, permno])
 
-        merged_stock_array.sort(key=lambda x: x[0])
-        merged_stock_df = pd.DataFrame(merged_stock_array, columns=['date', 'returns', 'ret_feat', 'permno'])
+      merged_stock_array.sort(key=lambda x: x[0])
+      merged_stock_df = pd.DataFrame(merged_stock_array, columns=['date', 'returns', 'ret_feat', 'permno'])
+
+      quantile_predictions = {}
+      for quantile in self.quantiles:
+        model = self.trained_model[quantile]
 
         # TODO: Add in other features here. X_All_Features_Test
         ############# WHEN USING ONLY PRICE DATA ######################
         X_test = np.array(merged_stock_df["returns"].tolist())
-        predicted_stock_price = self.trained_model.predict(X_test)
+        predicted_stock_price = model.predict(X_test)
         ###############################################################
 
         ############# WHEN USING ALL FEATURES ######################
         # X_test = np.array(merged_stock_df["ret_feat"].tolist())
-        # predicted_stock_price = self.trained_model.predict(X_All_Features_Test)
+        # predicted_stock_price = model.predict(X_All_Features_Test)
         ###############################################################
 
-        predictions_dic  = {
-          'permno': [],
-          'date': [],
-          'adjusted_prc_pred': [],
-          'std_dev_pred': []
-        }
+        quantile_predictions[quantile] = predicted_stock_price
 
-        # Convert stock prediction returns into stock prediction prices. Format dataframe for #stock_model_trainer.
-        for permno, date, predicted_returns in zip(merged_stock_df['permno'], merged_stock_df['date'], predicted_stock_price):
-          # Prediction date is 180 days (prediction_offset) after last known date of the stock.
-          prediction_date = first_permno_price[str(date) + ',' + str(permno)]['last_date'] + timedelta(self.options['prediction_offset'])
-          initial_price = first_permno_price[str(date) + ',' + str(permno)]['adjusted_prc']
-          predicted_price = initial_price + (initial_price * predicted_returns)
+      predictions_dic  = {
+        'permno': [],
+        'date': [],
+        'adjusted_prc_pred': []
+      }
 
-          # TODO: Refactor to train different percentile models.
-          predictions_dic['std_dev_pred'].append(None)
-          predictions_dic['permno'].append(permno)
-          predictions_dic['date'].append(prediction_date)
-          predictions_dic['adjusted_prc_pred'].append(predicted_price[0])
+      # Convert stock prediction returns into stock prediction prices. Format dataframe for #stock_model_trainer.
+      for permno, date, predicted_returns in zip(merged_stock_df['permno'], merged_stock_df['date'], quantile_predictions[0.5]):
+        # Prediction date is 180 days (prediction_offset) after last known date of the stock.
+        prediction_date = first_permno_price[str(date) + ',' + str(permno)]['last_date'] + timedelta(self.options['prediction_offset'])
+        initial_price = first_permno_price[str(date) + ',' + str(permno)]['adjusted_prc']
+        predicted_price = initial_price + (initial_price * predicted_returns)
 
-        predictions_df = pd.DataFrame(predictions_dic)
+        predictions_dic['permno'].append(permno)
+        predictions_dic['date'].append(prediction_date)
+        predictions_dic['adjusted_prc_pred'].append(predicted_price[0])
 
-        return predictions_df
+      predictions_df = pd.DataFrame(predictions_dic)
+
+      # Assume a normal distribution.
+      stds = (quantile_predictions[0.95] - quantile_predictions[0.05])/4
+      predictions_df["std_dev_pred"] = stds
+
+      return predictions_df
