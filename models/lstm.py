@@ -161,9 +161,9 @@ class LSTMModel:
         return mod
 
     def fit(self):
+        # TODO: Fix this.
         # Number of features and input shape shouldn't change -- therefore we can use the first dataframe for shape.
         trainset = self.CreateTrainData(self.train[0], self.train[0].permno[0])
-
         num_features = trainset["Ret_Feat"].shape[-1] - 1
         inputshape = (trainset["Features"].shape[1], num_features)
 
@@ -180,6 +180,7 @@ class LSTMModel:
         #                                    save_freq='epoch')
 
         permno_train_dic = {}
+        print(f"permno_data")
         for permno_data in self.train:
             # The permno for stock
             permno_string = permno_data.permno[0]

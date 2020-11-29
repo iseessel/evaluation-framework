@@ -7,7 +7,7 @@ QUERY = """
   SELECT
       DISTINCT permno
   FROM
-      `silicon-badge-274423.features.sp_daily_featuresr`
+      `silicon-badge-274423.features.sp_daily_features`
 """
 
 client = bigquery.Client(project='silicon-badge-274423')
@@ -19,7 +19,7 @@ args = {
     'model': LSTMModel,
     'permnos': all_permnos,
     'dataset': dataset,
-    'features': ['adjusted_prc'],
+    'features': ['adjusted_prc', 'adjusted_vol'],
     'start': '1980-01-01',
     'end': '2019-12-31',
     'offset': '2000-01-01',

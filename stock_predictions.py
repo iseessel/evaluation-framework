@@ -173,6 +173,7 @@ class StockPredictions:
 
       return result
 
+    # TODO: Improve performance of this method.
     def __get_train_test(self, df, permnos, start, end, last_pred_days):
       # Add 7 in case time occurrs on a holiday and/or weekend.
       eval_end = end + timedelta(days=last_pred_days + 7)
@@ -180,11 +181,15 @@ class StockPredictions:
 
       train = []
       test = []
+      i = 0
       for permno in permnos:
+        print(f"Done with: {i}")
+        i = i + 1
         train_permno = df[(df['date'] >= start) & (df['date'] <= end) & (df['permno'] == permno)].reset_index()
         test_permno = df[(df['date'] > end) & (df['date'] <= eval_end) & (df['permno'] == permno)].reset_index()
-        train.append(train_permno)
-        test.append(test_permno)
+        if not train_permno.empty and not test_permno.empty:
+          train.append(train_permno)
+          test.append(test_permno)
 
       return train, test
 
