@@ -15,7 +15,6 @@ from tensorflow.keras.layers import LSTM
 from tensorflow.keras.layers import Dropout
 import tensorflow as tf
 from datetime import timedelta
-import pdb
 
 class LSTMModel:
     def __init__(self, **kwargs):

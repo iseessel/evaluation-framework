@@ -1,53 +1,61 @@
 from google.cloud import bigquery
 import pandas as pd
-import pdb
+import os
 
+# The table queried below (silicon-badge-274423.financial_datasets.sp_price_fundamentals) was created from this query.
 QUERY = """
-  WITH financial_ratios_firm_level as (
-  SELECT
-    permno,
-    PARSE_DATE('%Y%m%d',
-        public_date) as public_date,
-    bm,
-    evm,
-    roa,
-    roe,
-    capital_ratio,
-    short_debt,
-    cash_ratio,
-    quick_ratio
-  FROM
-    `silicon-badge-274423.financial_datasets.financial_ratios_firm_level`
-  WHERE
-    permno IN (
+  WITH
+    sp_daily_features AS (
     SELECT
-      DISTINCT permno
+      *
     FROM
-      `silicon-badge-274423.features.sp_daily_features`)
-    AND PARSE_DATE('%Y%m%d',
-      public_date) > '1979-01-01'
-    AND PARSE_DATE('%Y%m%d',
-      public_date) < '2020-01-01'
-  ORDER BY
-    public_date, permno
-  ), sp_daily_features as (
-  SELECT
-    *
-  FROM
-    `silicon-badge-274423.features.sp_daily_features`
-  )
+      `silicon-badge-274423.features.sp_daily_features` ),
+    financial_ratios_firm_level AS (
+    SELECT
+      permno,
+      PARSE_DATE('%Y%m%d',
+        public_date) AS public_date,
+      bm,
+      evm,
+      roa,
+      roe,
+      capital_ratio,
+      short_debt,
+      cash_ratio,
+      quick_ratio,
+      (
+        SELECT
+           MIN(date)
+         FROM
+           sp_daily_features s
+         WHERE
+           s.permno = f.permno AND s.date >= PARSE_DATE('%Y%m%d', public_date)
+      ) as next_date
+    FROM
+      `silicon-badge-274423.financial_datasets.financial_ratios_firm_level` f
+    WHERE
+      permno IN (
+      SELECT
+        DISTINCT permno
+      FROM
+        `silicon-badge-274423.features.sp_daily_features`)
+      AND PARSE_DATE('%Y%m%d',
+        public_date) > '1980-01-01'
+      AND PARSE_DATE('%Y%m%d',
+        public_date) < '2020-01-01'
+    ORDER BY
+      public_date,
+      permno )
 
   SELECT
     *
   FROM
     sp_daily_features as sdf
   FULL OUTER JOIN
-    financial_ratios_firm_level as fl ON sdf.permno = fl.permno AND sdf.date = fl.public_date
+    financial_ratios_firm_level as fl ON sdf.permno = fl.permno AND sdf.date = fl.next_date
 """
 
 FEATURE_LIST = [
-  "permno_1",
-  "public_date",
   "bm",
   "evm",
   "roa",
@@ -58,43 +66,43 @@ FEATURE_LIST = [
   "quick_ratio"
 ]
 
-# First join to next known date for public_dates that don't report.
+QUERY = """
+  SELECT
+    date, permno, public_date, ticker, adjusted_prc, adjusted_vol, exchcd, bm, evm, roa, roe, capital_ratio, short_debt, cash_ratio, quick_ratio
+  FROM
+    `silicon-badge-274423.financial_datasets.sp_price_fundamentals`
+"""
+
+# # First join to next known date for public_dates that don't report.
 client = bigquery.Client(project='silicon-badge-274423')
-df = client.query(QUERY).to_dataframe()
-
-# One's without date (i.e. public_date is on a weekend)
-without_price = df[df.date.isnull()]
-with_price = df[df.date.notnull()]
-
-# for i, row in without_price.iterrows():
-#   # Get latest known date
-#   if i % 100 == 0:
-#     print(f"Finished with { i }/{ len(without_price) }")
-#
-#   temp = with_price[with_price.date >= row.public_date]
-#   temp = temp[temp.permno == row.permno_1]
-#   min_date = temp.date.min()
-#
-#   # Set values here.
-#   idx = temp.index[temp['date'] == min_date][0]
-#   for feature in FEATURE_LIST:
-#     with_price.at[idx, feature] = row[feature]
+features_df = client.query(QUERY).to_dataframe()
 
 # Fill in ones with a date from above.
 result_df = pd.DataFrame()
-permno_list = df.permno.unique()
+permno_list = features_df.permno.unique()
 for i, permno in enumerate(permno_list):
-  print(f"Finished with { i }/{ len(permno_list) }")
-
-  df = with_price[with_price.permno == permno].sort_values(by='date')
+  df = features_df[features_df.permno == permno].sort_values(by='date')
   df = df.ffill()
-  # TODO: What do we do with missing values here?
+
+  # TODO: Should we relax the missing values constraint?
   df = df.dropna(subset=FEATURE_LIST)
   # df = df.dropna(subset=FEATURE_LIST, thresh=len(df.columns) - 3)
 
   result_df = result_df.append(df)
-  if i == 10:
-    break
+  print(f"Finished with { i }/{ len(permno_list) }")
 
-import pdb; pdb.set_trace()
 result_df = result_df.sort_values(by=['date', 'permno'])
+
+result_df.to_csv('temp.csv', index=False)
+job_config = bigquery.LoadJobConfig(
+    source_format=bigquery.SourceFormat.CSV, skip_leading_rows=1,
+    autodetect=True,
+    write_disposition='WRITE_TRUNCATE'
+)
+
+with open('temp.csv', "rb") as source_file:
+    job = client.load_table_from_file(source_file, "silicon-badge-274423.features.sp_daily_fund_features_v1", job_config=job_config)
+
+job.result()  # Waits for the job to complete.
+
+os.remove("temp.csv")
