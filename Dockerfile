@@ -7,12 +7,13 @@
 
 # COPY . .
 
-FROM lppier/docker-prophet
+FROM python:3.8.5
 
 ENV GOOGLE_APPLICATION_CREDENTIALS="service-account.json"
 
 RUN apt-get update
 RUN apt-get -y install vim
+RUN pip install pandas
 RUN pip install google-cloud-bigquery
 RUN pip install sklearn
 RUN pip install tensorflow

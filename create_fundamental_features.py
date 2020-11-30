@@ -2,6 +2,11 @@ from google.cloud import bigquery
 import pandas as pd
 import os
 
+"""
+  This creates fundamental features.
+"""
+
+
 # The table queried below (silicon-badge-274423.financial_datasets.sp_price_fundamentals) was created from this query.
 QUERY = """
   WITH
