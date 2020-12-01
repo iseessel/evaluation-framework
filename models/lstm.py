@@ -165,14 +165,35 @@ class LSTMModel:
         e = (y-f)
         return K.mean(K.maximum(q*e, (q-1)*e), axis=-1)
 
+    # def visualize_loss(history, title):
+    #     loss = history.history["loss"]
+    #
+    #     epochs = range(len(loss))
+    #     plt.figure()
+    #     plt.plot(epochs, loss, "b", label="Training loss")
+    #     plt.plot(epochs, val_loss, "r", label="Validation loss")
+    #     plt.title(title)
+    #     plt.xlabel("Epochs")
+    #     plt.ylabel("Loss")
+    #     plt.legend()
+    #     plt.show()
 
     def fit(self):
       # TODO: Fix this.
       # Number of features and input shape shouldn't change -- therefore we can use the first dataframe for shape.
+
       trainset = self.CreateTrainData(self.train[0], self.train[0].permno[0])
+      # We want to make sure that trainset isn't null
+      if len(trainset["Features"].shape) < 2:
+          for i in range(len(self.train)):
+              # We want to make sure that trainset isn't null
+              if len(trainset["Features"].shape) >= 2:
+                  trainset = self.CreateTrainData(self.train[i], self.train[i].permno[0])
+                  break
+
       num_features = trainset["Ret_Feat"].shape[-1] - 1
       inputshape = (trainset["Features"].shape[1], num_features)
-
+      # import pdb; pdb.set_trace()
       for quantile in self.quantiles:
         # Create one model for all stocks as this is a "pooled-stock" model.
         model = self.get_model(inputshape, quantile)
@@ -192,7 +213,13 @@ class LSTMModel:
             # The permno for stock
             permno_string = permno_data.permno[0]
             trainset = self.CreateTrainData(permno_data, permno_string)
-            permno_train_dic[permno_string] = trainset
+
+            if len(trainset["Features"].shape) < 2:
+                # import pdb;pdb.set_trace()
+                continue
+            # Only add to dictionary if trainset doesn't have null values
+            if len(trainset["Features"].shape) >= 2:
+                permno_train_dic[permno_string] = trainset
 
         merged_stock_array = []
 
@@ -204,6 +231,9 @@ class LSTMModel:
         merged_stock_array.sort(key = lambda x: x[0])
         merged_stock_df = pd.DataFrame(merged_stock_array,columns=['date','features','label'])
 
+        # if len(trainset["Features"].shape)<2:
+        #     import pdb; pdb.set_trace()
+
         num_features = trainset["Ret_Feat"].shape[-1] - 1
         inputshape = (trainset["Features"].shape[1], num_features)
 
@@ -213,7 +243,7 @@ class LSTMModel:
         # TODO: Experiment with # of epochs when more features.
         # model.fit(X_train, Y_train, epochs = 1, batch_size = 64,callbacks=[callback])
 
-        model.fit(X_train, Y_train, epochs=1, batch_size=256)
+        model.fit(X_train, Y_train, epochs=1, batch_size=1024)
         # model.fit(X_train, Y_train, epochs=2, batch_size=64)
 
         print(f"Training Successful for ALL STOCKS from {merged_stock_df['date'].min()} to {merged_stock_df['date'].max()}! HURRAYYY !")
@@ -295,7 +325,11 @@ class LSTMModel:
           # Feat numpy (50, 1): just volume
           # date: dataframe.
           # Returns numpy (50, 1)
-          permno_test_dic[permno_string] = testset
+          # permno_test_dic[permno_string] = testset
+
+          # Only adding if all records are present
+          if len(testset['date'])==window_size:
+              permno_test_dic[permno_string] = testset
 
       merged_stock_array = []
 
@@ -314,7 +348,15 @@ class LSTMModel:
         # TODO: Add in other features here. X_All_Features_Test
         ############# WHEN USING ONLY PRICE DATA ######################
         X_test = np.array(merged_stock_df["returns"].tolist())
-        predicted_stock_price = model.predict(X_test)
+        #testing if correct shape, i.e. 3-dimensional array
+        # Shape of X_test should be (num_of_stocks, window_size, num_features)
+        # Where num_stocks = len(merged_stock_df)
+        if len(X_test.shape) == 3:
+            # import pdb; pdb.set_trace()
+            predicted_stock_price = model.predict(X_test)
+        else:
+            import pdb; pdb.set_trace
+
         ###############################################################
 
         ############# WHEN USING ALL FEATURES ######################
