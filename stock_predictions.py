@@ -47,9 +47,9 @@ class StockPredictions:
       else:
         self.__eval_single_stock()
 
-    def __create_stock_model_trainer(self, permnos, train, test):
+    def __create_stock_model_trainer(self, permnos, train, test, start, end):
       kwargs = {
-        'model': self.model(hypers=self.hypers, permnos=permnos, options={'prediction_offset':180}, train=train),
+        'model': self.model(hypers=self.hypers, permnos=permnos, options={'prediction_offset':int(253/2)}, train=train, start=start, end=end),
         'permnos': permnos,
         'train': train,
         'test': test,
@@ -88,7 +88,7 @@ class StockPredictions:
       stock_results = []
       for time in timeframes:
         train, test = self.__get_train_test(stock_data, self.permnos, self.start, time, self.evaluation_timeframe[-1])
-        trainer = self.__create_stock_model_trainer(self.permnos, train, test)
+        trainer = self.__create_stock_model_trainer(self.permnos, train, test, self.start, time)
         trainer.fit()
         df = trainer.evaluate()
 
@@ -112,7 +112,7 @@ class StockPredictions:
 
         for time in timeframes:
           train, test = self.__get_train_test(stock_data, [permno], self.start, time, self.evaluation_timeframe[-1])
-          trainer = self.__create_stock_model_trainer([permno], train, test)
+          trainer = self.__create_stock_model_trainer([permno], train, test, self.start, time)
 
           trainer.fit()
           df = trainer.evaluate()

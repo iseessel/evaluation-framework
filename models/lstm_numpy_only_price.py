@@ -15,8 +15,9 @@ from tensorflow.keras.layers import LSTM
 from tensorflow.keras.layers import Dropout
 import tensorflow as tf
 from datetime import timedelta
+import pickle
 
-class LSTMModel:
+class LSTMModel3:
     def __init__(self, **kwargs):
         # self.hypers = kwargs.get('hypers', {})
         self.trained_model = {}
@@ -25,6 +26,8 @@ class LSTMModel:
         self.train = kwargs['train']
         self.options = kwargs.get('options',{})
         self.quantiles = [0.05, 0.5, 0.95]
+        self.start = kwargs['start']
+        self.end = kwargs['end']
 
     def CreateTrainData(self, data, permno, window_size = 50):
         trainset = {}
@@ -192,13 +195,103 @@ class LSTMModel:
                   trainset = self.CreateTrainData(self.train[i], self.train[i].permno[0])
                   break
 
-      # # Noob implementation when using only price, still for price it should have been Return shape instead
-      # num_features = trainset["Ret_Feat"].shape[-1] - 1
-      # inputshape = (trainset["Features"].shape[1], num_features)
-      # When using Ret_Feat or all Features
-      num_features = trainset["Ret_Feat"].shape[-1]
+      # Noob implementation when using only price, still for price it should have been Return shape instead
+      num_features = trainset["Ret_Feat"].shape[-1] - 1
       inputshape = (trainset["Features"].shape[1], num_features)
+
+      # # When using Ret_Feat or all Features
+      # num_features = trainset["Ret_Feat"].shape[-1]
+      # inputshape = (trainset["Features"].shape[1], num_features)
+      # # import pdb; pdb.set_trace()
+
+
+      ################################## SEEE HERE FOR NUMPY CONVERSION ##################
+      start_date = self.start
+      end_date = self.end
+      saving_data_dictionary = {}
+
+      permno_train_dic = {}
+      print(f"permno_data")
+      for permno_data in self.train:
+          # The permno for stock
+          permno_string = permno_data.permno[0]
+          trainset = self.CreateTrainData(permno_data, permno_string)
+
+          if len(trainset["Features"].shape) < 2:
+              # import pdb;pdb.set_trace()
+              continue
+          # Only add to dictionary if trainset doesn't have null values
+          if len(trainset["Features"].shape) >= 2:
+              permno_train_dic[permno_string] = trainset
+
+      merged_stock_array = []
+
+      for permno in permno_train_dic.keys():
+          trainset = permno_train_dic[permno]
+          # When using only returns
+          for date, features, label in zip(trainset['date'],trainset['Returns'],trainset['Label_Returns']):
+          # # Using all features
+          # for date, features, label in zip(trainset['date'], trainset['Ret_Feat'], trainset['Label_Returns']):
+              merged_stock_array.append([date, features, label, permno])
+
+      merged_stock_array.sort(key=lambda x: x[0])
+      merged_stock_df = pd.DataFrame(merged_stock_array, columns=['date', 'features', 'label', 'permno'])
+
+      # if len(trainset["Features"].shape)<2:
+      #     import pdb; pdb.set_trace()
+
+      # Noob implementation when using only price, still for price it should have been Return shape instead
+      num_features = trainset["Ret_Feat"].shape[-1] - 1
+      inputshape = (trainset["Features"].shape[1], num_features)
+      # # When using Ret_Feat or all Features
+      # num_features = trainset["Ret_Feat"].shape[-1]
+      # inputshape = (trainset["Features"].shape[1], num_features)
+
+      X_train = np.array(merged_stock_df["features"].tolist())
+      Y_train = np.array(merged_stock_df["label"].tolist())
+
+      saving_data_dictionary['X_train'] = X_train
+      saving_data_dictionary['Y_train'] = Y_train
+      saving_data_dictionary['merged_stock_df_train'] = merged_stock_df
+
+      file_name = 'BetaTrain\TrainData_' + str(start_date) + '_' + str(end_date)
+
+      with open(file_name+'.pickle', 'wb') as handle:
+          print(f"SUCCESSFULLY SAVED TRAINING FILES till {end_date}")
+          pickle.dump(saving_data_dictionary, handle, protocol=pickle.HIGHEST_PROTOCOL)
+
       # import pdb; pdb.set_trace()
+
+      saved_dic = None
+      with open(file_name+'.pickle', 'rb') as handle:
+          saved_data_dictionary = pickle.load(handle)
+          saved_dic = saved_data_dictionary
+
+      # import pdb; pdb.set_trace()
+
+      X_train = saved_dic['X_train']
+      Y_train = saved_dic['Y_train']
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
       for quantile in self.quantiles:
         # Create one model for all stocks as this is a "pooled-stock" model.
         model = self.get_model(inputshape, quantile)
@@ -212,50 +305,57 @@ class LSTMModel:
         #                                    mode='auto',
         #                                    save_freq='epoch')
 
-        permno_train_dic = {}
-        print(f"permno_data")
-        for permno_data in self.train:
-            # The permno for stock
-            permno_string = permno_data.permno[0]
-            trainset = self.CreateTrainData(permno_data, permno_string)
 
-            if len(trainset["Features"].shape) < 2:
-                # import pdb;pdb.set_trace()
-                continue
-            # Only add to dictionary if trainset doesn't have null values
-            if len(trainset["Features"].shape) >= 2:
-                permno_train_dic[permno_string] = trainset
+        ##############################################################################################
 
-        merged_stock_array = []
 
-        for permno in permno_train_dic.keys():
-            trainset = permno_train_dic[permno]
-            # When using only returns
-            # for date, features, label in zip(trainset['date'],trainset['Returns'],trainset['Label_Returns']):
-            # Using all features
-            for date, features, label in zip(trainset['date'], trainset['Ret_Feat'], trainset['Label_Returns']):
-                merged_stock_array.append([date, features, label])
-
-        merged_stock_array.sort(key = lambda x: x[0])
-        merged_stock_df = pd.DataFrame(merged_stock_array,columns=['date','features','label'])
-
-        # if len(trainset["Features"].shape)<2:
-        #     import pdb; pdb.set_trace()
-
-        # # Noob implementation when using only price, still for price it should have been Return shape instead
-        # num_features = trainset["Ret_Feat"].shape[-1] - 1
+        # permno_train_dic = {}
+        # print(f"permno_data")
+        # for permno_data in self.train:
+        #     # The permno for stock
+        #     permno_string = permno_data.permno[0]
+        #     trainset = self.CreateTrainData(permno_data, permno_string)
+        #
+        #     if len(trainset["Features"].shape) < 2:
+        #         # import pdb;pdb.set_trace()
+        #         continue
+        #     # Only add to dictionary if trainset doesn't have null values
+        #     if len(trainset["Features"].shape) >= 2:
+        #         permno_train_dic[permno_string] = trainset
+        #
+        # merged_stock_array = []
+        #
+        # for permno in permno_train_dic.keys():
+        #     trainset = permno_train_dic[permno]
+        #     # When using only returns
+        #     # for date, features, label in zip(trainset['date'],trainset['Returns'],trainset['Label_Returns']):
+        #     # Using all features
+        #     for date, features, label in zip(trainset['date'], trainset['Ret_Feat'], trainset['Label_Returns']):
+        #         merged_stock_array.append([date, features, label])
+        #
+        # merged_stock_array.sort(key = lambda x: x[0])
+        # merged_stock_df = pd.DataFrame(merged_stock_array,columns=['date','features','label'])
+        #
+        # # if len(trainset["Features"].shape)<2:
+        # #     import pdb; pdb.set_trace()
+        #
+        # # # Noob implementation when using only price, still for price it should have been Return shape instead
+        # # num_features = trainset["Ret_Feat"].shape[-1] - 1
+        # # inputshape = (trainset["Features"].shape[1], num_features)
+        # # When using Ret_Feat or all Features
+        # num_features = trainset["Ret_Feat"].shape[-1]
         # inputshape = (trainset["Features"].shape[1], num_features)
-        # When using Ret_Feat or all Features
-        num_features = trainset["Ret_Feat"].shape[-1]
-        inputshape = (trainset["Features"].shape[1], num_features)
+        #
+        # X_train = np.array(merged_stock_df["features"].tolist())
+        # Y_train = np.array(merged_stock_df["label"].tolist())
 
-        X_train = np.array(merged_stock_df["features"].tolist())
-        Y_train = np.array(merged_stock_df["label"].tolist())
+        ##############################################################################################
         # import pdb; pdb.set_trace()
         # TODO: Experiment with # of epochs when more features.
         # model.fit(X_train, Y_train, epochs = 1, batch_size = 64,callbacks=[callback])
-
-        model.fit(X_train, Y_train, epochs=1, batch_size=1024)
+        # import pdb; pdb.set_trace()
+        model.fit(X_train[0:2], Y_train[0:2], epochs=1, batch_size=1024)
+        # model.fit(X_train, Y_train, epochs=1, batch_size=1024)
         # model.fit(X_train, Y_train, epochs=2, batch_size=64)
 
         print(f"Training Successful for ALL STOCKS from {merged_stock_df['date'].min()} to {merged_stock_df['date'].max()}! HURRAYYY !")
@@ -356,6 +456,27 @@ class LSTMModel:
 
       merged_stock_array.sort(key=lambda x: x[0])
       merged_stock_df = pd.DataFrame(merged_stock_array, columns=['date', 'returns', 'ret_feat', 'permno'])
+
+      # When using only prices
+      X_test = np.array(merged_stock_df["returns"].tolist())
+      # When using All features
+      # X_test = np.array(merged_stock_df["ret_feat"].tolist())
+      # predicted_stock_price = model.predict(X_All_Features_Test)
+
+      start_date = self.start
+      end_date = self.end
+      saving_data_dictionary = {}
+
+      saving_data_dictionary['X_test'] = X_test
+      saving_data_dictionary['merged_stock_df_test'] = merged_stock_df
+
+      file_name = 'BetaTest\TestData_' + str(start_date) + '_' + str(end_date)
+
+      with open(file_name + '.pickle', 'wb') as handle:
+          pickle.dump(saving_data_dictionary, handle, protocol=pickle.HIGHEST_PROTOCOL)
+          print(f"SUCCESSFULLY SAVED TESTING FILES till {end_date}")
+
+      import pdb;pdb.set_trace
 
       quantile_predictions = {}
       for quantile in self.quantiles:
