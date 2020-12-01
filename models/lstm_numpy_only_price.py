@@ -212,17 +212,23 @@ class LSTMModel3:
 
       permno_train_dic = {}
       print(f"permno_data")
+      i = 0
+      j = 0
       for permno_data in self.train:
           # The permno for stock
           permno_string = permno_data.permno[0]
           trainset = self.CreateTrainData(permno_data, permno_string)
 
+          i += 1
           if len(trainset["Features"].shape) < 2:
               # import pdb;pdb.set_trace()
               continue
           # Only add to dictionary if trainset doesn't have null values
           if len(trainset["Features"].shape) >= 2:
               permno_train_dic[permno_string] = trainset
+              j += 1
+              print(f"Created trainset no. {i}, permno_train_dic entry {j}, for end time {end_date} ")
+
 
       merged_stock_array = []
 
@@ -497,8 +503,9 @@ class LSTMModel3:
         # ###############################################################
 
         ############# WHEN USING ALL FEATURES ######################
-        X_test = np.array(merged_stock_df["ret_feat"].tolist())
+        # X_test = np.array(merged_stock_df["ret_feat"].tolist())
         # predicted_stock_price = model.predict(X_All_Features_Test)
+        import pdb; pdb.set_trace()
 
         if len(X_test.shape) == 3:
             # import pdb; pdb.set_trace()
