@@ -3,6 +3,7 @@ from fbprophet import Prophet
 import pandas as pd
 from google.cloud import bigquery
 
+# TODO: Need to refactor for changes in framework.
 # class FBProphet(Model):
 class FBProphet:
   """

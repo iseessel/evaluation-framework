@@ -5,9 +5,18 @@ import os
 
 QUERY = """
   SELECT
-      DISTINCT permno
+      DISTINCT permno,
+      COALESCE((
+      SELECT
+        MIN(date)
+      FROM
+        `silicon-badge-274423.financial_datasets.sp_timeseries_daily` std2
+      WHERE
+        std1.permno = std2.permno
+-- Predict 6 months in the future. Note, may not always be exactly 6 months due to weekends/holidays.
+        AND std2.date >= DATE_ADD(std1.date, INTERVAL 6 MONTH)), DATE_ADD(std1.date, INTERVAL 6 MONTH))  as prediction_date
   FROM
-      `silicon-badge-274423.features.sp_daily_features`
+      `silicon-badge-274423.features.sp_daily_features` std1
 """
 
 client = bigquery.Client(project='silicon-badge-274423')

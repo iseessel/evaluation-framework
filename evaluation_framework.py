@@ -5,13 +5,14 @@ from stock_model_trainer import StockModelTrainer
 from google.cloud import bigquery
 import os
 
-class StockPredictions:
+class EvaluationFramework:
     """
       Class is used to train and evaluate multiple stocks given one model for the entire lifecycle provided.
 
       :param model: Model Class. (see model.py and fb_prophet.py for examples).
       :param permnos: Array<Int>. Represents the stock Permno.
       :param dataset: String. The full table name of the features dataset.
+      :param storage_bucket: String. Storage bucket of the features pickle. ** Can only use storage_bucket or dataset.
       :param features: Array<String>. Array of strings of features. Must match column names in bigquery dataset.
       :param hypers: Dict<Any>. Dictionary of hyper parameters. Will be fed into the Model class above.
       :param start: String. Date to start training. E.g. '1980-01-01' will start the evaluation the first of January.
@@ -31,6 +32,7 @@ class StockPredictions:
       self.model = kwargs['model']
       self.permnos = kwargs['permnos']
       self.dataset = kwargs['dataset']
+      self.storage_bucket = kwargs['storage_bucket']
       self.features = kwargs['features']
       self.hypers = kwargs['hypers']
       self.start = datetime.strptime(kwargs['start'], '%Y-%m-%d').date()
@@ -80,15 +82,16 @@ class StockPredictions:
 
       return df
 
-    # TODO: Test loading and stuff
     def __eval_multi_stock(self):
       stock_data = self.__get_stock_data()
 
       timeframes = self.__get_timeframes()
       stock_results = []
       for time in timeframes:
+        # Get x_train, x_test, y_test here.
         train, test = self.__get_train_test(stock_data, self.permnos, self.start, time, self.evaluation_timeframe[-1])
         trainer = self.__create_stock_model_trainer(self.permnos, train, test, self.start, time)
+        # Add in x_train, x_test, y_test here.
         trainer.fit()
         df = trainer.evaluate()
 
@@ -145,6 +148,7 @@ class StockPredictions:
       #TODO: Memoize this.
       return df
 
+    # TODO: Improve this.
     def __get_stock_timeframes(self):
       QUERY = f"""
         SELECT
@@ -173,25 +177,33 @@ class StockPredictions:
 
       return result
 
+    def __get_train_test(df, permnos, start, end)
+        # Train_x is all non null columns where date >= start and prediction_date <= end.
+
+        # train_y is "TARGET" of above
+
+        # test_x is everything but target where date <= end
+
     # TODO: Improve performance of this method.
-    def __get_train_test(self, df, permnos, start, end, last_pred_days):
-      # Add 7 in case time occurrs on a holiday and/or weekend.
-      eval_end = end + timedelta(days=last_pred_days + 7)
-      df = df[df.permno.isin(permnos)]
+    # def __get_train_test(self, df, permnos, start, end, last_pred_days):
+    #   # Add 7 in case time occurrs on a holiday and/or weekend.
+    #   eval_end = end + timedelta(days=last_pred_days + 7)
+    #   df = df[df.permno.isin(permnos)]
+    #
+    #   train = []
+    #   test = []
+    #   i = 0
+    #   for permno in permnos:
+    #     i = i + 1
+    #     train_permno = df[(df['date'] >= start) & (df['date'] <= end) & (df['permno'] == permno)].reset_index()
+    #     test_permno = df[(df['date'] > end) & (df['date'] <= eval_end) & (df['permno'] == permno)].reset_index()
+    #     if not train_permno.empty and not test_permno.empty:
+    #       train.append(train_permno)
+    #       test.append(test_permno)
+    #
+    #   return train, test
 
-      train = []
-      test = []
-      i = 0
-      for permno in permnos:
-        i = i + 1
-        train_permno = df[(df['date'] >= start) & (df['date'] <= end) & (df['permno'] == permno)].reset_index()
-        test_permno = df[(df['date'] > end) & (df['date'] <= eval_end) & (df['permno'] == permno)].reset_index()
-        if not train_permno.empty and not test_permno.empty:
-          train.append(train_permno)
-          test.append(test_permno)
-
-      return train, test
-
+    # TODO: Improve timeframes.
     def __get_timeframes(self):
       dates = []
 

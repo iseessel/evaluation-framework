@@ -89,10 +89,9 @@ class StockModelTrainer:
     ]
 
     # TODO: Was getting duplicate bug. Revisit this.
-    print(evaluation_df.drop_duplicates())
     return evaluation_df.drop_duplicates()
 
-  # TODO: Improve missing data handling. e.g. Every 6 months.
+  # TODO: Improve missing data handling. Currently am interpolating test data.
   def __interpolate_test(self, predictions, test_data):
     test_data = test_data.set_index('date')
     test_data.index = pd.to_datetime(test_data.index)

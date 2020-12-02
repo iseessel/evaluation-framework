@@ -4,60 +4,58 @@ import os
 
 """
   This creates fundamental features.
+  TODO: Adapt this.
 """
-
 
 # The table queried below (silicon-badge-274423.financial_datasets.sp_price_fundamentals) was created from this query.
 QUERY = """
-  WITH
-    sp_daily_features AS (
-    SELECT
-      *
-    FROM
-      `silicon-badge-274423.features.sp_daily_features` ),
-    financial_ratios_firm_level AS (
-    SELECT
-      permno,
-      PARSE_DATE('%Y%m%d',
-        public_date) AS public_date,
-      bm,
-      evm,
-      roa,
-      roe,
-      capital_ratio,
-      short_debt,
-      cash_ratio,
-      quick_ratio,
-      (
-        SELECT
-           MIN(date)
-         FROM
-           sp_daily_features s
-         WHERE
-           s.permno = f.permno AND s.date >= PARSE_DATE('%Y%m%d', public_date)
-      ) as next_date
-    FROM
-      `silicon-badge-274423.financial_datasets.financial_ratios_firm_level` f
-    WHERE
-      permno IN (
-      SELECT
-        DISTINCT permno
-      FROM
-        `silicon-badge-274423.features.sp_daily_features`)
-      AND PARSE_DATE('%Y%m%d',
-        public_date) > '1980-01-01'
-      AND PARSE_DATE('%Y%m%d',
-        public_date) < '2020-01-01'
-    ORDER BY
-      public_date,
-      permno )
-
+WITH
+  sp_daily_features AS (
   SELECT
     *
   FROM
-    sp_daily_features as sdf
+    `silicon-badge-274423.features.sp_daily_features` ),
+  financial_ratios_firm_level AS (
+  SELECT
+    permno,
+    PARSE_DATE('%Y%m%d',
+      public_date) AS public_date,
+    bm,
+    evm,
+    roa,
+    roe,
+    capital_ratio,
+    short_debt,
+    cash_ratio,
+    quick_ratio,
+    (
+    SELECT
+      MIN(date)
+    FROM
+      sp_daily_features s
+    WHERE
+      s.permno = f.permno
+      AND s.date >= PARSE_DATE('%Y%m%d',
+        public_date) ) AS next_date
+  FROM
+    `silicon-badge-274423.financial_datasets.financial_ratios_firm_level` f
+  WHERE
+    permno IN (
+    SELECT
+      PERMNO
+    FROM
+      `silicon-badge-274423.financial_datasets.sp_constituents_historical`
+    WHERE
+      finish > '1980-01-01'))
+  SELECT
+    *
+  FROM
+    sp_daily_features AS sdf
   FULL OUTER JOIN
-    financial_ratios_firm_level as fl ON sdf.permno = fl.permno AND sdf.date = fl.next_date
+    financial_ratios_firm_level AS fl
+  ON
+    sdf.permno = fl.permno
+    AND sdf.date = fl.next_date
 """
 
 FEATURE_LIST = [
@@ -78,7 +76,7 @@ QUERY = """
     `silicon-badge-274423.financial_datasets.sp_price_fundamentals`
 """
 
-# # First join to next known date for public_dates that don't report.
+# First join to next known date for public_dates that don't report.
 client = bigquery.Client(project='silicon-badge-274423')
 features_df = client.query(QUERY).to_dataframe()
 

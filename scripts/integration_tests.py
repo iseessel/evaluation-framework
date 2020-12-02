@@ -30,15 +30,26 @@ Training FB Prophet on the aapl stock.
 """
   Training for LSTM Model.
 """
+
+QUERY = """
+  SELECT
+      DISTINCT permno
+  FROM
+      `silicon-badge-274423.features.sp_daily_features`
+"""
+
+client = bigquery.Client(project='silicon-badge-274423')
+all_permnos = client.query(QUERY).to_dataframe()['permno'].tolist()
+
 from google.cloud import bigquery
 args = {
     'client': bigquery.Client(project='silicon-badge-274423'),
     'model': LSTMModel,
-    'permnos': ["10104","10107"],
+    'permnos': all_permnos,
     'dataset': 'silicon-badge-274423.features.sp_daily_features',
-    'evaluation_table_id': 'silicon-badge-274423.stock_model_evaluation.lstm_sp_daily_features',
+    'evaluation_table_id': 'silicon-badge-274423.stock_model_evaluation.lstm_sp_daily_features_test1',
     'features': ['adjusted_prc','adjusted_vol'],
-    'start': '1990-01-01',
+    'start': '1980-01-01',
     'end': '2000-12-31',
     'offset': '2000-01-01',
     'increments': 180,
