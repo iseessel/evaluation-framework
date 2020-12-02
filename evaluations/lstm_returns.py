@@ -1,5 +1,5 @@
 from models.lstm import LSTMModel
-from stock_predictions import StockPredictions
+from stock_predictions import EvaluationFramework
 from google.cloud import bigquery
 import os
 
@@ -16,12 +16,12 @@ QUERY = """
 -- Predict 6 months in the future. Note, may not always be exactly 6 months due to weekends/holidays.
         AND std2.date >= DATE_ADD(std1.date, INTERVAL 6 MONTH)), DATE_ADD(std1.date, INTERVAL 6 MONTH))  as prediction_date
   FROM
-      `silicon-badge-274423.features.sp_daily_features` std1
+      `silicon-badge-274423.features.price_features_v0` std1
 """
 
 client = bigquery.Client(project='silicon-badge-274423')
 all_permnos = client.query(QUERY).to_dataframe()['permno'].tolist()
-dataset = 'silicon-badge-274423.features.sp_daily_features'
+dataset = 'silicon-badge-274423.features.price_features_v0'
 
 args = {
     'client': bigquery.Client(project='silicon-badge-274423'),
@@ -39,5 +39,5 @@ args = {
     'pooled': True
 }
 
-preds = StockPredictions(**args)
+preds = EvaluationFramework(**args)
 eval = preds.eval()

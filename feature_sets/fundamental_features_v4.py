@@ -3,8 +3,11 @@ import pandas as pd
 import os
 
 """
-  This creates fundamental features.
-  TODO: Adapt this.
+  This creates some fundamental features.
+  TODO:
+    1. Add in sector mappings
+    2. Zscore transform.
+    3. Get cracking!
 """
 
 # The table queried below (silicon-badge-274423.financial_datasets.sp_price_fundamentals) was created from this query.
@@ -14,7 +17,7 @@ WITH
   SELECT
     *
   FROM
-    `silicon-badge-274423.features.sp_daily_features` ),
+    `silicon-badge-274423.features.price_features_v0` ),
   financial_ratios_firm_level AS (
   SELECT
     permno,

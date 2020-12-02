@@ -16,7 +16,7 @@ from tensorflow.keras.layers import Dropout
 import tensorflow as tf
 from datetime import timedelta
 
-class LSTMModelV2:
+class LSTMV2:
     def __init__(self, **kwargs):
         # self.hypers = kwargs.get('hypers', {})
         self.trained_model = {}

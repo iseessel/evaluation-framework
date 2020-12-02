@@ -1,8 +1,13 @@
 from models.fb_prophet import FBProphet
-from stock_predictions import StockPredictions
+from stock_predictions import EvaluationFramework
 from models.lstm import LSTMModel
 from google.cloud import bigquery
 import os
+
+"""
+    NB: This may no longer work with refactor.
+    Results of this model were not good, so not prioritizing.
+"""
 
 # Separate permnos into 10 chunks for parallel training
 def chunks(lst, n):
@@ -13,7 +18,7 @@ QUERY = """
   SELECT
       DISTINCT permno
   FROM
-      `silicon-badge-274423.features.sp_daily_features`
+      `silicon-badge-274423.features.price_features_v0`
 """
 
 client = bigquery.Client(project='silicon-badge-274423')
@@ -21,7 +26,7 @@ all_permnos = client.query(QUERY).to_dataframe()['permno'].tolist()
 chunked_permno = chunks(all_permnos, 51)
 chunk_num = int(os.environ['CHUNK_NUMBER'])
 permnos = chunked_permno[chunk_num]
-dataset = 'silicon-badge-274423.features.sp_daily_features'
+dataset = 'silicon-badge-274423.features.price_features_v0'
 
 args = {
     'client': bigquery.Client(project='silicon-badge-274423'),
@@ -39,5 +44,5 @@ args = {
     'pooled': False
 }
 
-preds = StockPredictions(**args)
+preds = EvaluationFramework(**args)
 eval = preds.eval()

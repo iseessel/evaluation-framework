@@ -105,7 +105,7 @@ class NonLinearOptimization:
       SELECT
           date, permno, adjusted_prc
       FROM
-          `silicon-badge-274423.features.sp_daily_features`
+          `silicon-badge-274423.features.price_features_v0`
       WHERE
           date >= '{ (train_end - timedelta(365)).strftime('%Y-%m-%d') }' AND
           date <= '{train_end.strftime('%Y-%m-%d')}'

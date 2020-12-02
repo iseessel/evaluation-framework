@@ -20,7 +20,7 @@ SELECT
 -- Predict 6 months in the future. Note, may not always be exactly 6 months due to weekends/holidays.
       AND std2.date >= DATE_ADD(std1.date, INTERVAL 6 MONTH)), DATE_ADD(std1.date, INTERVAL 6 MONTH))  as prediction_date
 FROM
-    `silicon-badge-274423.features.sp_daily_features` std1
+    `silicon-badge-274423.features.price_features_v0` std1
 )
 
 SELECT
@@ -28,7 +28,7 @@ SELECT
 FROM
     prediction_date
 LEFT JOIN
-    `silicon-badge-274423.features.sp_daily_features` std
+    `silicon-badge-274423.features.price_features_v0` std
 ON
     std.permno = prediction_date.permno AND std.date = prediction_date.prediction_date
 """
@@ -93,6 +93,10 @@ features_df = pd.DataFrame({
     'target': targets,
     'prediction_date': prediction_dates
 })
+
+import pdb; pdb.set_trace()
+features_df.date = features_df.date.astype('string')
+features_df.prediction_date = features_df.date.astype('string')
 
 """
     Upload pickle.

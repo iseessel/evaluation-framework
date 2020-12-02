@@ -28,8 +28,10 @@ class StockModelTrainer:
   def __init__(self, **kwargs):
     self.model = kwargs['model']
     self.permnos = kwargs['permnos'] #TODO: Support pooled models using multiple stock data.
-    self.train = kwargs['train']
-    self.test = kwargs['test']
+    self.train_x = kwargs['train_x']
+    self.train_y = kwargs['test']
+    self.test_x = kwargs['test']
+    self.test_y = kwargs['test']
     self.evaluation_timeframe = sorted(kwargs['evaluation_timeframe'])
     self.hypers = kwargs['hypers']
     self.dataset = kwargs['dataset']
@@ -41,44 +43,39 @@ class StockModelTrainer:
     evaluation_df = pd.DataFrame()
 
     # Evaluate for each permno
-    for train_data, test_data in zip(self.train, self.test):
-      print(f"Permno: {self.permnos}.")
-      print(f"Min Train Date: {str(train_data['date'].min())}.")
-      print(f"Max Train Date: {str(train_data['date'].max())}.")
-      print(f"Max Test Date: {str(test_data['date'].max())}.")
+    predictions = self.model.predict(self.evaluation_timeframe)
 
-      predictions = self.model.predict(self.evaluation_timeframe)
+    print("Finished predicting. Test Train and Test data below.")
+    import pdb; pdb.set_trace()
+    # Collate the predictions with the test data.
+    test_data = self.__interpolate_test(predictions, test_data)
+    test_data.index = test_data.index.astype('datetime64')
+    test_data = test_data.loc[predictions['date']]
 
-      # Collate the predictions with the test data.
-      test_data = self.__interpolate_test(predictions, test_data)
-      test_data.index = test_data.index.astype('datetime64')
-      test_data = test_data.loc[predictions['date']]
+    test_data['date'] = test_data.index
+    test_data['adjusted_prc_actual'] = test_data['adjusted_prc']
+    test_data = pd.merge(test_data, predictions, on=['date', 'permno'])
 
-      test_data['date'] = test_data.index
-      test_data['adjusted_prc_actual'] = test_data['adjusted_prc']
-      test_data = pd.merge(test_data, predictions, on=['date', 'permno'])
+    # test_data['permno'] = self.permno
+    test_data['model'] = self.model.__class__.__name__
+    test_data['hypers'] = json.dumps(self.hypers)
 
-      # test_data['permno'] = self.permno
-      test_data['ticker'] = train_data['ticker'][train_data['ticker'].notnull()].iloc[0]
-      test_data['model'] = self.model.__class__.__name__
-      test_data['hypers'] = json.dumps(self.hypers)
+    test_data['train_start'] = str(train_data['date'].min())
+    test_data['train_end'] = str(train_data['date'].max())
+    test_data['prediction_date'] = test_data['date'].astype(str)
+    test_data['dataset'] = self.dataset
+    test_data['features'] = ','.join(train_data.columns.values.tolist())
 
-      test_data['train_start'] = str(train_data['date'].min())
-      test_data['train_end'] = str(train_data['date'].max())
-      test_data['prediction_date'] = test_data['date'].astype(str)
-      test_data['dataset'] = self.dataset
-      test_data['features'] = ','.join(train_data.columns.values.tolist())
+    test_data['MSE'] = (test_data.adjusted_prc_actual - test_data.adjusted_prc_pred)**2 # Mean Square Error.
+    test_data['MAPE'] = abs((test_data.adjusted_prc_actual - test_data.adjusted_prc_pred)/test_data.adjusted_prc_actual) # Mean Average Percent Error.
+    # Get last "known" price, in order to predict whether or not we predicted the correct direction.
+    # TODO: Threshold for this; e.g. +0.2%, -0.1%? Only use correct direction of the portfolio selection.
+    test_data['adjusted_prc_train_end'] = train_data.loc[train_data['date'] == train_data['date'].max()]['adjusted_prc'].iloc[0]
+    test_data['correct_direction'] = ((test_data.adjusted_prc_actual - test_data.adjusted_prc_train_end) * (test_data.adjusted_prc_pred - test_data.adjusted_prc_train_end) > 0) # Guessed Correct Direction.
+    # TODO: Potentially allow for non-normally distributed error.
+    test_data['within_pred_int'] = (((test_data.adjusted_prc_pred + 2 * test_data.std_dev_pred) > test_data.adjusted_prc_actual) &  ((test_data.adjusted_prc_pred - 2 * test_data.std_dev_pred) < test_data.adjusted_prc_actual)) #Actual within Confident Interval.
 
-      test_data['MSE'] = (test_data.adjusted_prc_actual - test_data.adjusted_prc_pred)**2 # Mean Square Error.
-      test_data['MAPE'] = abs((test_data.adjusted_prc_actual - test_data.adjusted_prc_pred)/test_data.adjusted_prc_actual) # Mean Average Percent Error.
-      # Get last "known" price, in order to predict whether or not we predicted the correct direction.
-      # TODO: Threshold for this; e.g. +0.2%, -0.1%? Only use correct direction of the portfolio selection.
-      test_data['adjusted_prc_train_end'] = train_data.loc[train_data['date'] == train_data['date'].max()]['adjusted_prc'].iloc[0]
-      test_data['correct_direction'] = ((test_data.adjusted_prc_actual - test_data.adjusted_prc_train_end) * (test_data.adjusted_prc_pred - test_data.adjusted_prc_train_end) > 0) # Guessed Correct Direction.
-      # TODO: Potentially allow for non-normally distributed error.
-      test_data['within_pred_int'] = (((test_data.adjusted_prc_pred + 2 * test_data.std_dev_pred) > test_data.adjusted_prc_actual) &  ((test_data.adjusted_prc_pred - 2 * test_data.std_dev_pred) < test_data.adjusted_prc_actual)) #Actual within Confident Interval.
-
-      evaluation_df = evaluation_df.append(test_data)
+    evaluation_df = evaluation_df.append(test_data)
 
     evaluation_df = evaluation_df[
       [

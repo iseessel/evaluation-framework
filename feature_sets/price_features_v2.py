@@ -12,9 +12,12 @@ Experimentation Todos:
     2. Add more permnos. Currently only using current SP permnos -- Can also use old sp permnos. ** Might want to only use stocks in S&P at that time **
     3. Experiment with different lags.
     4. Implement trend line volatility.
+    5. Global Z.
 
 Implementation Details Todos:
     1. Use calendar details instead of -253 trading days.
+    2. First 29 day of z scores are null.
+    3. 30 null targets.
 """
 
 START_DATE = '1980-01-01'
@@ -77,7 +80,7 @@ QUERY = f"""
       SELECT
         DISTINCT permno
       FROM
-        `silicon-badge-274423.features.sp_daily_features`
+        `silicon-badge-274423.features.price_features_v0`
         # SELECT PERMNO FROM `silicon-badge-274423.financial_datasets.sp_constituents_historical` WHERE finish > '1980-01-01'
         )
       AND date > '1980-01-01'
@@ -297,7 +300,7 @@ merged_df = merged_df.dropna(subset=[n for n in merged_df if n not in ['predicti
 numeric_features = set(RAW_FEATURES) - set(['permno', 'date', 'prediction_date'])
 features_df = merged_df[numeric_features]
 
-# Global ZScore. TODO: Add Global Zscore. Need to change index to days. 
+# Global ZScore. TODO: Add Global Zscore. Need to change index to days.
 # col_mean = features_df.rolling(window=TRADING_DAYS, min_periods=30).mean()
 # col_std = features_df.rolling(window=TRADING_DAYS, min_periods=30).std()
 # zscore = (features_df - col_mean)/col_std
@@ -333,7 +336,7 @@ final_df.to_csv('temp.csv', index=False)
 # )
 #
 # with open('temp.csv', "rb") as source_file:
-#   job = client.load_table_from_file(source_file, 'silicon-badge-274423.features.sp_daily_features_v2', job_config=job_config)
+#   job = client.load_table_from_file(source_file, 'silicon-badge-274423.features.price_features_v0_v2', job_config=job_config)
 #
 # job.result()  # Waits for the job to complete.
 #
