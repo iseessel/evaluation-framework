@@ -358,7 +358,7 @@ class LSTMModel2:
         # model.fit(X_train, Y_train, epochs=1, batch_size=1024)
         # model.fit(X_train, Y_train, epochs=2, batch_size=64)
 
-        print(f"Training Successful for ALL STOCKS from {merged_stock_df['date'].min()} to {merged_stock_df['date'].max()}! HURRAYYY !")
+        print(f"Quantile {quantile} Training Successful for ALL STOCKS from {merged_stock_df['date'].min()} to {merged_stock_df['date'].max()}! HURRAYYY !")
 
         self.trained_model[quantile] = model
 
@@ -473,7 +473,7 @@ class LSTMModel2:
           pickle.dump(saving_data_dictionary, handle, protocol=pickle.HIGHEST_PROTOCOL)
           print(f"SUCCESSFULLY SAVED TESTING FILES till {end_date}")
 
-      import pdb;pdb.set_trace
+      # import pdb;pdb.set_trace
 
       quantile_predictions = {}
       for quantile in self.quantiles:
