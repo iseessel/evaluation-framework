@@ -16,7 +16,7 @@ class BoostedTree:
         model.fit(self.x_train, self.y_train, epochs=3, batch_size=1024)
 
     def __get_model(self, quantile):
-        return GradientBoostingRegressor(loss="quantile", alpha=quantile, n_estimators=100)
+        return GradientBoostingRegressor(loss="ls", alpha=quantile, n_estimators=100)
 
     def __tilted_loss(self, q, y, f):
         e = (y - f)

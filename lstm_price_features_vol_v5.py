@@ -1,5 +1,5 @@
 # TODO Move to evaluations folder. Couldn't figure out how to import models, etc.,
-from models.lstm_v2 import LSTMV2
+from models.lstm_model import LSTMModel
 from evaluation_framework import EvaluationFramework
 from google.cloud import bigquery
 import numpy as np
@@ -10,24 +10,34 @@ import numpy as np
 """
 
 
-def glue(x_train, y_train, x_test, y_test):
+def glue(x_train, y_train, x_test, y_test, y_train_vol, y_test_vol):
     x_train = np.array(x_train.adjusted_rets.tolist())
     x_train = x_train.reshape(-1, x_train.shape[1], 1)
 
     y_train = y_train.to_numpy().reshape(-1, 1)
 
     # Need a way of mapping a y_test example to a prediction date
-    permno_dates = x_test[['date', 'permno']].to_numpy()
+    permno_dates = {
+        'permno': x_test.permno.to_numpy(),
+        'date': x_test.date.to_numpy(),
+        'prediction_date': x_test.prediction_date.to_numpy()
+    }
 
     x_test = np.array(x_test.adjusted_rets.tolist())
     x_test = x_test.reshape(-1, x_test.shape[1], 1)
 
     y_test = y_test.to_numpy().reshape(-1, 1)
 
-    return (x_train, y_train, x_test, y_test, permno_dates)
+    if y_train_vol is not None:
+        y_train_vol = y_train_vol.to_numpy().reshape(-1, 1)
+
+    if y_test_vol is not None:
+        y_test_vol = y_test_vol.to_numpy().reshape(-1, 1)
+
+    return (x_train, y_train, x_test, y_test, permno_dates, y_train_vol, y_test_vol)
 
 
-DATASET = 'silicon-badge-274423.features.price_features_v1'
+DATASET = 'silicon-badge-274423.features.price_features_vol_v5'
 
 QUERY = f"""
   SELECT
@@ -41,19 +51,22 @@ all_permnos = client.query(QUERY).to_dataframe()['permno'].tolist()
 
 args = {
     'client': bigquery.Client(project='silicon-badge-274423'),
-    'model': LSTMV2,
-    'permnos': all_permnos,
+    'model': LSTMModel,
+    'permnos': all_permnos[0:10],
     'dataset': DATASET,
     'features': ['adjusted_rets', 'date', 'permno', 'prediction_date'],
     'start': '1980-01-01',
-    'end': '2019-12-31',
+    'end': '2000-06-30',
     'offset': '2000-01-01',
     'increments': 180,
     'hypers': {},
     'evaluation_timeframe': [180],
     'evaluation_table_id': f'silicon-badge-274423.stock_model_evaluation.lstm_v2_price_features_v1_test1',
     'pooled': True,
-    'glue': glue
+    'glue': glue,
+    'options': {
+        'returns_from_t': True
+    }
 }
 
 preds = EvaluationFramework(**args)

@@ -44,6 +44,7 @@ class EvaluationFramework:
         self.evaluation_table_id = kwargs['evaluation_table_id']
         self.glue = kwargs['glue']
         self.pooled = kwargs['pooled']
+        self.options = kwargs['options']
 
     def eval(self):
         if self.pooled:
@@ -51,22 +52,27 @@ class EvaluationFramework:
         else:
             self.__eval_single_stock()
 
-    def __create_stock_model_trainer(self, x_train, y_train, x_test, y_test, permno_dates):
+    def __create_stock_model_trainer(self, x_train, y_train, x_test, y_test, permno_dates, train_end, y_train_vol, y_test_vol):
         kwargs = {
             # 'hypers': self.hypers,
             'x_train': x_train,
             'y_train': y_train,
             'x_test': x_test,
+            'y_test': y_test,
+            'y_train_vol': y_train_vol,
             'permno_dates': permno_dates,
+            'options': self.options
         }
 
         model = self.model(**kwargs)
         kwargs = {
             'model': model,
             'y_test': y_test,
-            'evaluation_timeframe': self.evaluation_timeframe,
+            'y_test_vol': y_test_vol,
             'hypers': self.hypers,
-            'dataset': self.dataset
+            'dataset': self.dataset,
+            'train_start': self.start,
+            'train_end': train_end
         }
 
         return StockModelTrainer(**kwargs)
@@ -96,8 +102,7 @@ class EvaluationFramework:
         # Get dataframe with last known predictions.
         train_df = df[df.date >= train_start]
         train_df = train_df[train_df.prediction_date <= train_end]
-        import pdb
-        pdb.set_trace()
+
         x_train = train_df.drop('target', axis=1)[self.features]
         y_train = train_df['target']
 
@@ -106,26 +111,34 @@ class EvaluationFramework:
         test_df = df[self.features]
         test_df = df[df.date >= train_start]
         test_df = df[df.date <= train_end]
-        import pdb
-        pdb.set_trace()
+
         idx = test_df.groupby(['permno'])['prediction_date'].transform(
             max) == test_df['prediction_date']
         test_df = test_df[idx]
-        import pdb
-        pdb.set_trace()
+
+        # TODO: This can probably be handled better.
+        # Sometimes multiple dates will have the same prediction date. Only get the last one.
+        idx = test_df.groupby(['permno'])['date'].transform(
+            max) == test_df['date']
+        test_df = test_df[idx]
 
         x_test = test_df.drop('target', axis=1)[self.features]
         y_test = test_df['target']
 
-        return (x_train, y_train, x_test, y_test)
+        # TODO: Allow different models/datasets for returns and vol calculations.
+        y_train_vol = train_df.get('target_vol', None)
+        y_test_vol = test_df.get('target_vol', None)
+
+        return (x_train, y_train, x_test, y_test, y_train_vol, y_test_vol)
 
     def __eval_multi_stock(self):
         stock_data = self.__get_stock_data()
-
         timeframes = self.__get_timeframes()
+
+        stock_results = []
         for time in timeframes:
             print(f"Starting Timeframe: {self.start} - {time}")
-            x_train, y_train, x_test, y_test = self.__get_train_test(
+            x_train, y_train, x_test, y_test, y_train_vol, y_test_vol = self.__get_train_test(
                 stock_data, self.start, time)
             print(
                 f"X train: From ({x_train.date.min()} - {x_train.date.max() }). Num examples: { len(x_train) }\n"
@@ -134,26 +147,28 @@ class EvaluationFramework:
                 f"Y test: Num examples: { len(x_test) }\n"
             )
 
+            # No data available for time period.
+            if len(x_train) == 0:
+                continue
+
             # Apply custome glue function to get data ready for model.
-            x_train, y_train, x_test, y_test, permno_dates = self.glue(
-                x_train, y_train, x_test, y_test)
-            import pdb
-            pdb.set_trace()
+            x_train, y_train, x_test, y_test, permno_dates, y_train_vol, y_test_vol = self.glue(
+                x_train, y_train, x_test, y_test, y_train_vol, y_test_vol)
+
             trainer = self.__create_stock_model_trainer(
-                x_train, y_train, x_test, y_test, permno_dates)
+                x_train, y_train, x_test, y_test, permno_dates, time, y_train_vol, y_test_vol)
 
             trainer.fit()
             df = trainer.evaluate()
-            #
-            # if len(stock_results) == 0:
-            #     stock_results.append(df.columns.values.tolist())
-            #
-            # stock_results=stock_results + df.values.tolist()
-            #
-            # return self.__load_stock_results(stock_results)
+
+            if len(stock_results) == 0:
+                stock_results.append(df.columns.values.tolist())
+
+            stock_results = stock_results + df.values.tolist()
+
+        return self.__load_stock_results(stock_results)
 
     # TODO: This needs to be refactored. This will *NOT* work.
-
     def __eval_single_stock(self):
         timeframes = self.__get_stock_timeframes()
 
@@ -184,12 +199,9 @@ class EvaluationFramework:
 
     # TODO: Decide whether or not to Retrieve this per stock (May run into memory constraints.)
     def __get_stock_data(self):
-        features = set(['permno', 'date', 'prediction_date',
-                        'target']).union(self.features)
-        features = ','.join(features)
         QUERY = f"""
         SELECT
-            { features }
+            *
         FROM
             `{ self.dataset }`
         WHERE
@@ -198,11 +210,14 @@ class EvaluationFramework:
               date <= '{ self.__eval_end(self.end).strftime('%Y-%m-%d') }'
         ORDER BY
             date
-      """
+        """
         print("Fetching features dataset")
         print(QUERY)
 
         df = self.client.query(QUERY).to_dataframe()
+        features = set(['permno', 'date', 'prediction_date',
+                        'target', 'target_vol']).union(self.features)
+        df = df[features]
 
         # TODO: Memoize this.
         return df
@@ -237,25 +252,6 @@ class EvaluationFramework:
             result[stock.permno] = stock_dates
 
         return result
-
-    # TODO: Improve performance of this method.
-    # def __get_train_test(self, df, permnos, start, end, last_pred_days):
-    #   # Add 7 in case time occurrs on a holiday and/or weekend.
-    #   eval_end = end + timedelta(days=last_pred_days + 7)
-    #   df = df[df.permno.isin(permnos)]
-    #
-    #   train = []
-    #   test = []
-    #   i = 0
-    #   for permno in permnos:
-    #     i = i + 1
-    #     train_permno = df[(df['date'] >= start) & (df['date'] <= end) & (df['permno'] == permno)].reset_index()
-    #     test_permno = df[(df['date'] > end) & (df['date'] <= eval_end) & (df['permno'] == permno)].reset_index()
-    #     if not train_permno.empty and not test_permno.empty:
-    #       train.append(train_permno)
-    #       test.append(test_permno)
-    #
-    #   return train, test
 
     # TODO: Improve timeframes to months (instead of days).
     def __get_timeframes(self):

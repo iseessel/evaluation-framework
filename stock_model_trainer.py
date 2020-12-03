@@ -11,6 +11,7 @@ class StockModelTrainer:
       :param permno: Int representing the Permno of the stock.
       :param train: Training dataframe. Date as a datetime column. The last value of train is considered "t" or the "prediction_date".
       :param test: Test dataframe. Same format as train, except the future values.
+      NB: This is DEPRECATED
       :param evaluation_timeframe: Array<Int>. Timeframes to predict (see below).
 
       e.g. With the following parameters:
@@ -31,84 +32,48 @@ class StockModelTrainer:
         self.model = kwargs['model']
         # TODO: Support pooled models using multiple stock data.
         self.y_test = kwargs['y_test']
-        self.evaluation_timeframe = sorted(kwargs['evaluation_timeframe'])
+        self.y_test_vol = kwargs['y_test']
         self.hypers = kwargs['hypers']
         self.dataset = kwargs['dataset']
+        self.train_start = kwargs['train_start']
+        self.train_end = kwargs['train_start']
 
     def fit(self):
         return self.model.fit()
 
     def evaluate(self):
         evaluation_df = pd.DataFrame()
-        import pdb
-        pdb.set_trace()
-        # Evaluate for each permno
-        predictions = self.model.predict(self.evaluation_timeframe)
+        predictions = self.model.predict()
 
-        print("Finished predicting. Test Train and Test data below.")
-        import pdb
-        pdb.set_trace()
-        # Collate the predictions with the test data.
-        test_data = self.__interpolate_test(predictions, test_data)
-        test_data.index = test_data.index.astype('datetime64')
-        test_data = test_data.loc[predictions['date']]
+        # Sometimes model will already have return_target.
+        # E.g. if there is a special transformation needed to obtain returns from time T.
+        if not 'return_target' in predictions.columns:
+            # Order will be preserved.
+            predictions['return_target'] = self.y_test.reshape(-1)
 
-        test_data['date'] = test_data.index
-        test_data['adjusted_prc_actual'] = test_data['adjusted_prc']
-        test_data = pd.merge(test_data, predictions, on=['date', 'permno'])
+        if not 'vol_target' in predictions.columns:
+            # Order will be preserved.
+            predictions['vol_target'] = self.y_test_vol.reshape(-1)
+            predictions['vol_MSE'] = (
+                predictions.vol_prediction - predictions.vol_target)**2
+            predictions['vols_MAPE'] = (
+                predictions.vol_prediction - predictions.vol_target)
 
-        # test_data['permno'] = self.permno
-        test_data['model'] = self.model.__class__.__name__
-        test_data['hypers'] = json.dumps(self.hypers)
+        predictions['returns_MSE'] = (
+            predictions.return_prediction - predictions.return_target)**2
+        predictions['returns_MAPE'] = (
+            predictions.return_prediction - predictions.return_target)
+        predictions['returns_correct_direction'] = (
+            predictions.return_prediction * predictions.return_target) >= 0
 
-        test_data['train_start'] = str(train_data['date'].min())
-        test_data['train_end'] = str(train_data['date'].max())
-        test_data['prediction_date'] = test_data['date'].astype(str)
-        test_data['dataset'] = self.dataset
-        test_data['features'] = ','.join(train_data.columns.values.tolist())
+        predictions['model'] = self.model.__class__.__name__
+        predictions['train_start'] = self.train_start
+        predictions['train_end'] = self.train_start
+        predictions['dataset'] = self.train_start
+        # predictions['within_pred_int']=predictions.return_prediction - 2 * predictions.std_prediction <= predictions.return_actual <= predictions.return_prediction + 2 * predictions.std_prediction:
 
-        # Mean Square Error.
-        test_data['MSE'] = (test_data.adjusted_prc_actual -
-                            test_data.adjusted_prc_pred)**2
-        # Mean Average Percent Error.
-        test_data['MAPE'] = abs((test_data.adjusted_prc_actual -
-                                 test_data.adjusted_prc_pred) / test_data.adjusted_prc_actual)
-        # Get last "known" price, in order to predict whether or not we predicted the correct direction.
-        # TODO: Threshold for this; e.g. +0.2%, -0.1%? Only use correct direction of the portfolio selection.
-        test_data['adjusted_prc_train_end'] = train_data.loc[train_data['date']
-                                                             == train_data['date'].max()]['adjusted_prc'].iloc[0]
-        test_data['correct_direction'] = ((test_data.adjusted_prc_actual - test_data.adjusted_prc_train_end) * (
-            test_data.adjusted_prc_pred - test_data.adjusted_prc_train_end) > 0)  # Guessed Correct Direction.
-        # TODO: Potentially allow for non-normally distributed error.
-        test_data['within_pred_int'] = (((test_data.adjusted_prc_pred + 2 * test_data.std_dev_pred) > test_data.adjusted_prc_actual) & (
-            (test_data.adjusted_prc_pred - 2 * test_data.std_dev_pred) < test_data.adjusted_prc_actual))  # Actual within Confident Interval.
+        cols = ['permno', 'date', 'prediction_date', 'return_prediction', 'return_target', 'vol_prediction', 'vol_target', 'vol_MSE',
+                'vols_MAPE', 'returns_MSE', 'returns_MAPE', 'returns_correct_direction', 'model', 'train_start', 'train_end', 'dataset']
+        predictions = predictions[cols]
 
-        evaluation_df = evaluation_df.append(test_data)
-
-        evaluation_df = evaluation_df[
-            [
-                'permno', 'ticker', 'model', 'dataset', 'features', 'hypers', 'train_start',
-                'train_end', 'prediction_date', 'adjusted_prc_train_end', 'adjusted_prc_pred', 'std_dev_pred',
-                'adjusted_prc_actual', 'MSE', 'MAPE', 'correct_direction', 'within_pred_int'
-            ]
-        ]
-
-        # TODO: Was getting duplicate bug. Revisit this.
-        return evaluation_df.drop_duplicates()
-
-    # TODO: Improve missing data handling. Currently am interpolating test data.
-    def __interpolate_test(self, predictions, test_data):
-        test_data = test_data.set_index('date')
-        test_data.index = pd.to_datetime(test_data.index)
-        test_data.index = test_data.index.to_period("D")
-
-        min_date = test_data.index.min()
-        max_date = test_data.index.max()
-        idx = pd.period_range(min_date, max_date)
-        test_data = test_data.reindex(idx)
-
-        # TODO: Logic to only forward fill.
-        # Interpolate by finding the nearest value in case the first and the last value or NaN.
-        test_data = test_data.ffill().bfill()
-
-        return test_data
+        return predictions
