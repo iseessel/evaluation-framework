@@ -140,40 +140,50 @@ merged_df['cum_ret_stock'] = by_permno.cum_ret_stock.cumprod()
 
 cum_ret = merged_df[['permno', 'date', 'cum_ret_stock']]
 
-merged_df = merged_df.merge(cum_ret, how='left', left_on=['prediction_date', 'permno'], right_on=['date', 'permno'])
-merged_df['target'] = (merged_df['cum_ret_stock_y'] - merged_df['cum_ret_stock_x']) / (merged_df['cum_ret_stock_x'])
-merged_df = merged_df[['permno', 'date_x','prediction_date', 'ret', 'vwretd', 'cum_ret_stock_x', 'target']]
-merged_df.columns = ['permno', 'date', 'prediction_date', 'ret', 'vwretd', 'cum_ret_stock', 'target']
+merged_df = merged_df.merge(cum_ret, how='left', left_on=[
+                            'prediction_date', 'permno'], right_on=['date', 'permno'])
+merged_df['target'] = (merged_df['cum_ret_stock_y'] -
+                       merged_df['cum_ret_stock_x']) / (merged_df['cum_ret_stock_x'])
+merged_df = merged_df[['permno', 'date_x', 'prediction_date',
+                       'ret', 'vwretd', 'cum_ret_stock_x', 'target']]
+merged_df.columns = ['permno', 'date', 'prediction_date',
+                     'ret', 'vwretd', 'cum_ret_stock', 'target']
 by_permno = merged_df.groupby('permno')
 """
     Gain Loss %: (Stock[-1] - Stock[0]) * 100 / (Stock[0])
 """
 
-merged_df['gain_loss'] = by_permno.cum_ret_stock.pct_change(periods=TRADING_DAYS)
+merged_df['gain_loss'] = by_permno.cum_ret_stock.pct_change(
+    periods=TRADING_DAYS)
 
 print("Finished calculating gain_loss.")
 """
     Beta = cov(Stock, Market) / Var(Market)
 """
+
+
 def fix_nested_index(series, indeces):
-    series = series.reset_index(level=[0,1])
+    series = series.reset_index(level=[0, 1])
     series = series.drop('permno', axis=1).set_index('level_1')
     series.columns = indeces
 
     return series
 
+
 def beta(stock_col, market_col):
-    cov = by_permno[[stock_col, market_col]].rolling(TRADING_DAYS, min_periods=1).cov()
-    cov = cov.groupby(level=[0,1]).last()[stock_col]
+    cov = by_permno[[stock_col, market_col]].rolling(
+        TRADING_DAYS, min_periods=1).cov()
+    cov = cov.groupby(level=[0, 1]).last()[stock_col]
     # Need min periods, since bull and bear returns will have many NaN entries (When the market went up/down).
     var = by_permno[market_col].rolling(TRADING_DAYS, min_periods=1).var()
 
-    beta = cov/var
+    beta = cov / var
     beta = fix_nested_index(beta, ['beta'])
 
     return beta
 
-merged_df['beta'] = beta('ret','vwretd')
+
+merged_df['beta'] = beta('ret', 'vwretd')
 
 print("Finished calculating beta.")
 
@@ -183,7 +193,7 @@ print("Finished calculating beta.")
 """
 # Market. Beta Bull, Beta Bear, Beta.
 
-#Get Bull and Bear Lists of returns.
+# Get Bull and Bear Lists of returns.
 merged_df['ret_sp_bull'] = merged_df['vwretd']
 merged_df.loc[merged_df['ret_sp_bull'] < 0, 'ret_sp_bull'] = None
 
@@ -213,9 +223,10 @@ print("Finished calculating beta_bull and beta_bear.")
     We don't use min_periods above, so when we drop nas, we will drop everything properly.
 """
 
-sum_bull = by_permno['ret_stock_bull'].rolling(TRADING_DAYS, min_periods=1).sum()
+sum_bull = by_permno['ret_stock_bull'].rolling(
+    TRADING_DAYS, min_periods=1).sum()
 num_bull_days = by_permno.rolling(253)['is_bull'].sum()
-returns_bull = sum_bull/num_bull_days
+returns_bull = sum_bull / num_bull_days
 returns_bull = fix_nested_index(returns_bull, ['returns_bull'])
 
 merged_df['returns_bull'] = returns_bull
@@ -225,13 +236,15 @@ print("Finished calculating returns_bull.")
 """
     'Returns Bear': sum(ReturnsMeanData[2]) / len(ReturnsMeanData[2])
 """
-sum_bear = by_permno['ret_stock_bear'].rolling(TRADING_DAYS, min_periods=1).sum()
+sum_bear = by_permno['ret_stock_bear'].rolling(
+    TRADING_DAYS, min_periods=1).sum()
 num_bear_days = by_permno.rolling(253)['is_bear'].sum()
-returns_bear = sum_bear/num_bear_days
+returns_bear = sum_bear / num_bear_days
 returns_bear = fix_nested_index(returns_bear, ['returns_bear'])
 
 merged_df['returns_bear'] = returns_bear
-merged_df = merged_df.drop(columns=['is_bull', 'is_bear', 'ret_sp_bear', 'ret_sp_bull', 'ret_stock_bull', 'ret_stock_bear'])
+merged_df = merged_df.drop(columns=[
+                           'is_bull', 'is_bear', 'ret_sp_bear', 'ret_sp_bull', 'ret_stock_bull', 'ret_stock_bear'])
 
 print("Finished calculating returns_bear.")
 
@@ -239,12 +252,13 @@ print("Finished calculating returns_bear.")
     Market Correlation: covar(StockS, MarketS) / (math.sqrt(var(StockS) * var(MarketS))),
 """
 cov = by_permno[['ret', 'vwretd']].rolling(TRADING_DAYS).cov()
-cov = cov.groupby(level=[0,1]).last()['ret']
+cov = cov.groupby(level=[0, 1]).last()['ret']
 stock_var = by_permno['ret'].rolling(TRADING_DAYS).var()
 market_var = by_permno['vwretd'].rolling(TRADING_DAYS).var()
 
 market_correlation = cov / np.sqrt(stock_var * market_var)
-market_correlation = fix_nested_index(market_correlation, ['market_correlation'])
+market_correlation = fix_nested_index(
+    market_correlation, ['market_correlation'])
 merged_df['market_correlation'] = market_correlation
 
 print("Finished calculating market_correlation.")
@@ -253,8 +267,10 @@ print("Finished calculating market_correlation.")
     'Average Daily Return': sum(StockS) / len(StockS),
 """
 
-average_daily_return = by_permno['ret'].rolling(TRADING_DAYS).sum() / TRADING_DAYS
-average_daily_return = fix_nested_index(average_daily_return, ['average_daily_return'])
+average_daily_return = by_permno['ret'].rolling(
+    TRADING_DAYS).sum() / TRADING_DAYS
+average_daily_return = fix_nested_index(
+    average_daily_return, ['average_daily_return'])
 merged_df['average_daily_return'] = average_daily_return
 
 print("Finished calculating average_daily_return.")
@@ -279,7 +295,8 @@ print("Finished calculating kurtosis.")
 
 merged_df['log_ret'] = np.log(1 + merged_df['ret'])
 by_permno = merged_df.groupby('permno')
-volatility = by_permno['log_ret'].rolling(window=TRADING_DAYS).std() * np.sqrt(TRADING_DAYS)
+volatility = by_permno['log_ret'].rolling(
+    window=TRADING_DAYS).std() * np.sqrt(TRADING_DAYS)
 volatility = fix_nested_index(volatility, ['volatility'])
 merged_df['volatility'] = volatility
 
@@ -296,8 +313,10 @@ print(f"Finished with {RAW_FEATURES}")
 """
 
 # Drop all rows without values except prediction_date
-merged_df = merged_df.dropna(subset=[n for n in merged_df if n not in ['prediction_date', 'target']])
-numeric_features = set(RAW_FEATURES) - set(['permno', 'date', 'prediction_date'])
+merged_df = merged_df.dropna(
+    subset=[n for n in merged_df if n not in ['prediction_date', 'target']])
+numeric_features = set(RAW_FEATURES) - \
+    set(['permno', 'date', 'prediction_date'])
 features_df = merged_df[numeric_features]
 
 # Global ZScore. TODO: Add Global Zscore. Need to change index to days.
@@ -309,16 +328,18 @@ features_df = merged_df[numeric_features]
 # merged_df = merged_df.merge(zscore, how='left', left_index=True, right_index=True)
 
 # Local ZScore (Zscore by_permno)
-by_permno = merged_df[numeric_features.union(set(['permno']))].groupby('permno')[list(numeric_features)]
+by_permno = merged_df[numeric_features.union(set(['permno']))].groupby('permno')[
+    list(numeric_features)]
 col_mean = by_permno.rolling(window=TRADING_DAYS, min_periods=30).mean()
 col_mean = fix_nested_index(col_mean, col_mean.columns.tolist())
 col_std = by_permno.rolling(window=TRADING_DAYS, min_periods=30).std()
 col_std = fix_nested_index(col_std, col_std.columns.tolist())
-zscore = (features_df - col_mean)/(col_std)
+zscore = (features_df - col_mean) / (col_std)
 
 local_cols = [str + '_local_z' for str in zscore.columns]
 zscore.columns = local_cols
-merged_df = merged_df.merge(zscore, how='left', left_index=True, right_index=True)
+merged_df = merged_df.merge(
+    zscore, how='left', left_index=True, right_index=True)
 
 # print("Finished calculating local and global z-scores.")
 print("Finished calculating local z-scores.")
@@ -327,7 +348,7 @@ final_df = merged_df[FINAL_FEATURES + ['target']]
     Upload to Bigquery.
     TODO: This was stalling indefinitely. Have uploaded to bigquery manually.
 """
-#TODO: Make this a utils class. Improve this method.
+# TODO: Make this a utils class. Improve this method.
 final_df.to_csv('temp.csv', index=False)
 # job_config = bigquery.LoadJobConfig(
 #   source_format=bigquery.SourceFormat.CSV, skip_leading_rows=1,

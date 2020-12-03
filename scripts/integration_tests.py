@@ -41,19 +41,18 @@ QUERY = """
 client = bigquery.Client(project='silicon-badge-274423')
 all_permnos = client.query(QUERY).to_dataframe()['permno'].tolist()
 
-from google.cloud import bigquery
 args = {
     'client': bigquery.Client(project='silicon-badge-274423'),
     'model': LSTMModel,
     'permnos': all_permnos,
     'dataset': 'silicon-badge-274423.features.price_features_v0',
     'evaluation_table_id': 'silicon-badge-274423.stock_model_evaluation.lstm_sp_daily_features_test1',
-    'features': ['adjusted_prc','adjusted_vol'],
+    'features': ['adjusted_prc', 'adjusted_vol'],
     'start': '1980-01-01',
     'end': '2000-12-31',
     'offset': '2000-01-01',
     'increments': 180,
-    'hypers': {'a':1},
+    'hypers': {'a': 1},
     'evaluation_timeframe': [180],
     'pooled': True
 }

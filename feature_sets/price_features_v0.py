@@ -83,7 +83,7 @@ df.prediction_date = df.prediction_date.astype('string')
     Upload to Bigquery.
     TODO: This was stalling indefinitely. Have uploaded to bigquery manually.
 """
-#TODO: Make this a utils class. Improve this method.
+# TODO: Make this a utils class. Improve this method.
 df.to_csv('temp.csv', index=False)
 # job_config = bigquery.LoadJobConfig(
 #   source_format=bigquery.SourceFormat.CSV, skip_leading_rows=1,

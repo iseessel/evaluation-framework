@@ -10,9 +10,12 @@ import os
 """
 
 # Separate permnos into 10 chunks for parallel training
+
+
 def chunks(lst, n):
     """Yield successive n-sized chunks from lst."""
     return [lst[i:i + n] for i in range(0, len(lst), n)]
+
 
 QUERY = """
   SELECT
@@ -40,7 +43,7 @@ args = {
     'increments': 180,
     'hypers': {},
     'evaluation_timeframe': [180],
-   'evaluation_table_id': f'silicon-badge-274423.stock_model_evaluation.fbprophet_sp_daily_features_{chunk_num}',
+    'evaluation_table_id': f'silicon-badge-274423.stock_model_evaluation.fbprophet_sp_daily_features_{chunk_num}',
     'pooled': False
 }
 

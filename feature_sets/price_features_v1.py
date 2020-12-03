@@ -21,19 +21,23 @@ df = df.dropna()
 arr = df.adjusted_prc.to_numpy()
 
 # https://stackoverflow.com/questions/40084931/taking-subarrays-from-numpy-array-with-given-stride-stepsize
-def strided_app(a, L = WINDOW_SIZE, S=1):
-    nrows = ((a.size-L)//S)+1
+
+
+def strided_app(a, L=WINDOW_SIZE, S=1):
+    nrows = ((a.size - L) // S) + 1
     n = a.strides[0]
-    return np.lib.stride_tricks.as_strided(a, shape=(nrows,L), strides=(S*n,n))
+    return np.lib.stride_tricks.as_strided(a, shape=(nrows, L), strides=(S * n, n))
+
 
 def rolling_returns(a):
-    f = lambda x: (x - a[0]) / (a[0])
+    def f(x): return (x - a[0]) / (a[0])
     return f(a)
 
+
 dates = np.empty((0), 'datetime64')
-prediction_dates =  np.empty((0), 'datetime64')
+prediction_dates = np.empty((0), 'datetime64')
 permnos = np.empty((0), 'object')
-rolling_window = np.empty((0,WINDOW_SIZE), 'float32')
+rolling_window = np.empty((0, WINDOW_SIZE), 'float32')
 targets = np.empty((0), 'float32')
 
 # TODO: Can potentially optimize this.
@@ -48,7 +52,8 @@ for permno, row in df.groupby('permno'):
     # Dates, permnos, and target dates are offset by WINDOW_SIZE.
     dates = np.append(dates, row.date.to_numpy()[(WINDOW_SIZE - 1):])
     permnos = np.append(permnos, row.permno.to_numpy()[(WINDOW_SIZE - 1):])
-    prediction_dates = np.append(prediction_dates, row.prediction_date.to_numpy()[(WINDOW_SIZE - 1):])
+    prediction_dates = np.append(
+        prediction_dates, row.prediction_date.to_numpy()[(WINDOW_SIZE - 1):])
 
     t = row.target.to_numpy()[(WINDOW_SIZE - 1):]
     rets = []
@@ -62,10 +67,10 @@ for permno, row in df.groupby('permno'):
     print(f"Done with {i} / { len(df.groupby('permno')) }")
     i += 1
 
-import pdb; pdb.set_trace()
 # Sort the dates and the other arrays.
 x = dates.argsort()
-dates, permnos, rolling_window, targets, prediction_dates = dates[x], permnos[x], rolling_window[x], targets[x], prediction_dates[x]
+dates, permnos, rolling_window, targets, prediction_dates = dates[
+    x], permnos[x], rolling_window[x], targets[x], prediction_dates[x]
 features_df = pd.DataFrame({
     'date': dates,
     'permno': permnos,
@@ -75,7 +80,7 @@ features_df = pd.DataFrame({
 })
 
 features_df.date = features_df.date.astype('string')
-features_df.prediction_date = features_df.date.astype('string')
+features_df.prediction_date = features_df.prediction_date.astype('string')
 
 """
     Upload pickle.

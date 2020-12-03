@@ -62,14 +62,14 @@ WITH
 """
 
 FEATURE_LIST = [
-  "bm",
-  "evm",
-  "roa",
-  "roe",
-  "capital_ratio",
-  "short_debt",
-  "cash_ratio",
-  "quick_ratio"
+    "bm",
+    "evm",
+    "roa",
+    "roe",
+    "capital_ratio",
+    "short_debt",
+    "cash_ratio",
+    "quick_ratio"
 ]
 
 QUERY = """
@@ -87,15 +87,15 @@ features_df = client.query(QUERY).to_dataframe()
 result_df = pd.DataFrame()
 permno_list = features_df.permno.unique()
 for i, permno in enumerate(permno_list):
-  df = features_df[features_df.permno == permno].sort_values(by='date')
-  df = df.ffill()
+    df = features_df[features_df.permno == permno].sort_values(by='date')
+    df = df.ffill()
 
-  # TODO: Should we relax the missing values constraint?
-  df = df.dropna(subset=FEATURE_LIST)
-  # df = df.dropna(subset=FEATURE_LIST, thresh=len(df.columns) - 3)
+    # TODO: Should we relax the missing values constraint?
+    df = df.dropna(subset=FEATURE_LIST)
+    # df = df.dropna(subset=FEATURE_LIST, thresh=len(df.columns) - 3)
 
-  result_df = result_df.append(df)
-  print(f"Finished with { i }/{ len(permno_list) }")
+    result_df = result_df.append(df)
+    print(f"Finished with { i }/{ len(permno_list) }")
 
 result_df = result_df.sort_values(by=['date', 'permno'])
 
@@ -107,7 +107,8 @@ job_config = bigquery.LoadJobConfig(
 )
 
 with open('temp.csv', "rb") as source_file:
-    job = client.load_table_from_file(source_file, "silicon-badge-274423.features.sp_daily_fund_features_v1", job_config=job_config)
+    job = client.load_table_from_file(
+        source_file, "silicon-badge-274423.features.sp_daily_fund_features_v1", job_config=job_config)
 
 job.result()  # Waits for the job to complete.
 
