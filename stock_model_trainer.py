@@ -32,7 +32,7 @@ class StockModelTrainer:
         self.model = kwargs['model']
         # TODO: Support pooled models using multiple stock data.
         self.y_test = kwargs['y_test']
-        self.y_test_vol = kwargs['y_test']
+        self.y_test_vol = kwargs['y_test_vol']
         self.hypers = kwargs['hypers']
         self.dataset = kwargs['dataset']
         self.train_start = kwargs['train_start']
@@ -69,7 +69,7 @@ class StockModelTrainer:
         predictions['model'] = self.model.__class__.__name__
         predictions['train_start'] = self.train_start
         predictions['train_end'] = self.train_start
-        predictions['dataset'] = self.train_start
+        predictions['dataset'] = self.train_end
         # predictions['within_pred_int']=predictions.return_prediction - 2 * predictions.std_prediction <= predictions.return_actual <= predictions.return_prediction + 2 * predictions.std_prediction:
 
         cols = ['permno', 'date', 'prediction_date', 'return_prediction', 'return_target', 'vol_prediction', 'vol_target', 'vol_MSE',

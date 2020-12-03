@@ -49,7 +49,7 @@ class LSTMModel:
         if self.options['returns_from_t']:
             predicted_returns, actual_returns = self.__predict_returns_from_t()
         else:
-            predicted_returns, actual_returns = self.__predict_returns_t_minus_window()
+            predicted_returns, actual_returns = self.__predict_returns_from_t_minus_window()
 
         vol_prediction = None
         if self.y_train_vol is not None:
@@ -110,7 +110,6 @@ class LSTMModel:
         mod.add(BatchNormalization())
         mod.add((Dense(units=16, activation='relu')))
         mod.add(BatchNormalization())
-        # mod.add((Dense(units = 4, activation='tanh')))
         mod.add((Dense(units=1, activation='relu')))
         mod.compile(loss=MeanSquaredError(), optimizer='adam', metrics=[
                     'accuracy', 'mean_squared_error'])

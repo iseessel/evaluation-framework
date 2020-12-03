@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 from datetime import datetime, timedelta
+from dateutil.relativedelta import relativedelta
 from stock_model_trainer import StockModelTrainer
 from google.cloud import bigquery
 import os
@@ -103,12 +104,15 @@ class EvaluationFramework:
         train_df = df[df.date >= train_start]
         train_df = train_df[train_df.prediction_date <= train_end]
 
-        x_train = train_df.drop('target', axis=1)[self.features]
-        y_train = train_df['target']
-
         # TODO: Refactor test dataset for different testing strategies.
         # Get prediction dates.
-        test_df = df[self.features]
+        features = set(['permno', 'date', 'prediction_date', ]
+                       ).union(self.features)
+
+        x_train = train_df.drop('target', axis=1)[features]
+        y_train = train_df['target']
+
+        test_df = df[features]
         test_df = df[df.date >= train_start]
         test_df = df[df.date <= train_end]
 
@@ -122,7 +126,7 @@ class EvaluationFramework:
             max) == test_df['date']
         test_df = test_df[idx]
 
-        x_test = test_df.drop('target', axis=1)[self.features]
+        x_test = test_df.drop('target', axis=1)[features]
         y_test = test_df['target']
 
         # TODO: Allow different models/datasets for returns and vol calculations.
@@ -140,6 +144,7 @@ class EvaluationFramework:
             print(f"Starting Timeframe: {self.start} - {time}")
             x_train, y_train, x_test, y_test, y_train_vol, y_test_vol = self.__get_train_test(
                 stock_data, self.start, time)
+
             print(
                 f"X train: From ({x_train.date.min()} - {x_train.date.max() }). Num examples: { len(x_train) }\n"
                 f"Y train. Num examples: { len(y_train) }\n"
@@ -151,9 +156,19 @@ class EvaluationFramework:
             if len(x_train) == 0:
                 continue
 
+            # TODO: Refactor glue to take train_df and test_df
             # Apply custome glue function to get data ready for model.
             x_train, y_train, x_test, y_test, permno_dates, y_train_vol, y_test_vol = self.glue(
                 x_train, y_train, x_test, y_test, y_train_vol, y_test_vol)
+
+            print(
+                f"X train shape: {x_train.shape}\n"
+                f"Y train shape: {y_train.shape}\n"
+                f"X test shape: {x_test.shape}\n"
+                f"Y test shape: {y_test.shape}\n"
+                f"Y train vol shape: {y_train_vol.shape}\n"
+                f"Y test vol shape: {y_test_vol.shape}\n"
+            )
 
             trainer = self.__create_stock_model_trainer(
                 x_train, y_train, x_test, y_test, permno_dates, time, y_train_vol, y_test_vol)
@@ -215,6 +230,7 @@ class EvaluationFramework:
         print(QUERY)
 
         df = self.client.query(QUERY).to_dataframe()
+
         features = set(['permno', 'date', 'prediction_date',
                         'target', 'target_vol']).union(self.features)
         df = df[features]
@@ -260,7 +276,7 @@ class EvaluationFramework:
         curr_date = self.offset
         while curr_date <= self.end:
             dates.append(curr_date)
-            curr_date = curr_date + timedelta(days=self.increments)
+            curr_date = curr_date + relativedelta(months=+self.increments)
 
         return dates
 
