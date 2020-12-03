@@ -63,7 +63,6 @@ class LSTMModel:
             'return_prediction': predicted_returns,
             'return_target': actual_returns,
             'vol_prediction': vol_prediction
-            # TODO: Add in standard deviation
         }
 
         predictions_df = pd.DataFrame(predictions_dic)
@@ -108,9 +107,9 @@ class LSTMModel:
         mod.add((LSTM(units=64)))
         mod.add(Dropout(0.1))
         mod.add(BatchNormalization())
-        mod.add((Dense(units=16, activation='relu')))
+        mod.add((Dense(units=16, activation='tanh')))
         mod.add(BatchNormalization())
-        mod.add((Dense(units=1, activation='relu')))
+        mod.add((Dense(units=1, activation='tanh')))
         mod.compile(loss=MeanSquaredError(), optimizer='adam', metrics=[
                     'accuracy', 'mean_squared_error'])
         mod.summary()
