@@ -47,4 +47,4 @@ class BoostedTree:
         return predictions_df
 
     def __get_model(self):
-        return GradientBoostingRegressor(loss="ls", n_estimators=100, verbose=1m)
+        return GradientBoostingRegressor(loss="ls", n_estimators=100, verbose=1)
