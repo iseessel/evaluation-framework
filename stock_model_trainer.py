@@ -40,7 +40,8 @@ class StockModelTrainer:
 
     def evaluate(self):
         evaluation_df = pd.DataFrame()
-
+        import pdb
+        pdb.set_trace()
         # Evaluate for each permno
         predictions = self.model.predict(self.evaluation_timeframe)
 

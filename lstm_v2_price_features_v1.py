@@ -10,20 +10,21 @@ import numpy as np
 """
 
 
-def glue(x_train, y_train, x_test, y_test, permnos_test):
+def glue(x_train, y_train, x_test, y_test):
     x_train = np.array(x_train.adjusted_rets.tolist())
     x_train = x_train.reshape(-1, x_train.shape[1], 1)
 
     y_train = y_train.to_numpy().reshape(-1, 1)
+
+    # Need a way of mapping a y_test example to a prediction date
+    permno_dates = x_test[['date', 'permno']].to_numpy()
 
     x_test = np.array(x_test.adjusted_rets.tolist())
     x_test = x_test.reshape(-1, x_test.shape[1], 1)
 
     y_test = y_test.to_numpy().reshape(-1, 1)
 
-    permnos_test = permnos_test.to_numpy()
-
-    return (x_train, y_train, x_test, y_test, permnos_test)
+    return (x_train, y_train, x_test, y_test, permno_dates)
 
 
 DATASET = 'silicon-badge-274423.features.price_features_v1'

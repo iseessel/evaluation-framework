@@ -51,13 +51,13 @@ class EvaluationFramework:
         else:
             self.__eval_single_stock()
 
-    def __create_stock_model_trainer(self, x_train, y_train, x_test, y_test, permnos_test):
+    def __create_stock_model_trainer(self, x_train, y_train, x_test, y_test, permno_dates):
         kwargs = {
             # 'hypers': self.hypers,
             'x_train': x_train,
             'y_train': y_train,
             'x_test': x_test,
-            'permnos_test': permnos_test,
+            'permno_dates': permno_dates,
         }
 
         model = self.model(**kwargs)
@@ -96,7 +96,8 @@ class EvaluationFramework:
         # Get dataframe with last known predictions.
         train_df = df[df.date >= train_start]
         train_df = train_df[train_df.prediction_date <= train_end]
-
+        import pdb
+        pdb.set_trace()
         x_train = train_df.drop('target', axis=1)[self.features]
         y_train = train_df['target']
 
@@ -105,16 +106,18 @@ class EvaluationFramework:
         test_df = df[self.features]
         test_df = df[df.date >= train_start]
         test_df = df[df.date <= train_end]
+        import pdb
+        pdb.set_trace()
         idx = test_df.groupby(['permno'])['prediction_date'].transform(
             max) == test_df['prediction_date']
         test_df = test_df[idx]
+        import pdb
+        pdb.set_trace()
 
         x_test = test_df.drop('target', axis=1)[self.features]
         y_test = test_df['target']
 
-        permnos_test = test_df.permno
-
-        return (x_train, y_train, x_test, y_test, permnos_test)
+        return (x_train, y_train, x_test, y_test)
 
     def __eval_multi_stock(self):
         stock_data = self.__get_stock_data()
@@ -122,25 +125,25 @@ class EvaluationFramework:
         timeframes = self.__get_timeframes()
         for time in timeframes:
             print(f"Starting Timeframe: {self.start} - {time}")
-            x_train, y_train, x_test, y_test, permnos_test = self.__get_train_test(
+            x_train, y_train, x_test, y_test = self.__get_train_test(
                 stock_data, self.start, time)
             print(
                 f"X train: From ({x_train.date.min()} - {x_train.date.max() }). Num examples: { len(x_train) }\n"
                 f"Y train. Num examples: { len(y_train) }\n"
                 f"X test: From ({x_test.date.min()} - {x_test.date.max() }). Num examples: { len(x_test) }\n"
                 f"Y test: Num examples: { len(x_test) }\n"
-                f"Permnos: Num examples: { len(x_test) }\n"
             )
 
             # Apply custome glue function to get data ready for model.
-            x_train, y_train, x_test, y_test, permnos_test = self.glue(
-                x_train, y_train, x_test, y_test, permnos_test)
-
+            x_train, y_train, x_test, y_test, permno_dates = self.glue(
+                x_train, y_train, x_test, y_test)
+            import pdb
+            pdb.set_trace()
             trainer = self.__create_stock_model_trainer(
-                x_train, y_train, x_test, y_test, permnos_test)
+                x_train, y_train, x_test, y_test, permno_dates)
 
             trainer.fit()
-            # df=trainer.evaluate()
+            df = trainer.evaluate()
             #
             # if len(stock_results) == 0:
             #     stock_results.append(df.columns.values.tolist())
