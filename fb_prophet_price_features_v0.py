@@ -49,3 +49,30 @@ args = {
 
 preds = EvaluationFramework(**args)
 eval = preds.eval()
+
+"""
+NOTE: This query was run after this executed, because now we are predictin returns NOT anything else.
+
+WITH
+  fb_prophet AS (
+  SELECT
+    permno,
+    train_end AS date,
+    prediction_date,
+    (adjusted_prc_pred - adjusted_prc_train_end) / adjusted_prc_train_end AS returns_prediction,
+    (adjusted_prc_actual - adjusted_prc_train_end) / adjusted_prc_train_end AS returns_actual,
+    std_dev_pred/adjusted_prc_pred AS vol_prediction,
+    model,
+    dataset,
+    train_start,
+    train_end
+  FROM
+    `silicon-badge-274423.stock_model_evaluation.fb_prophet_sp_daily_features_v0_prod` v0 )
+SELECT
+  *,
+  POWER(returns_prediction - returns_actual, 2) AS returns_mse,
+  returns_prediction - returns_actual AS returns_MAPE,
+  returns_prediction * returns_actual > 0,
+FROM
+  fb_prophet
+"""

@@ -1,3 +1,4 @@
+import pdb
 from google.cloud import bigquery, storage
 from datetime import datetime
 import pandas as pd
@@ -170,6 +171,7 @@ merged_df.columns = ['permno', 'date', 'prediction_date',
 """
 merged_df['cum_ret_stock'] = merged_df['ret'] + 1
 by_permno = merged_df.groupby('permno')
+pdb.set_trace()
 merged_df['cum_ret_stock'] = by_permno.cum_ret_stock.cumprod()
 merged_df['gain_loss'] = by_permno.cum_ret_stock.pct_change(
     periods=TRADING_DAYS)

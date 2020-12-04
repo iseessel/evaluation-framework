@@ -1,4 +1,8 @@
-from sklearn.ensemble import GradientBoostingRegressor
+# from sklearn.ensemble import GradientBoostingRegressor
+# explicitly require this experimental feature
+from sklearn.experimental import enable_hist_gradient_boosting  # noqa
+# now you can import normally from ensemble
+from sklearn.ensemble import HistGradientBoostingRegressor
 from datetime import timedelta
 import pandas as pd
 
@@ -47,4 +51,4 @@ class BoostedTree:
         return predictions_df
 
     def __get_model(self):
-        return GradientBoostingRegressor(loss="ls", n_estimators=100, verbose=1)
+        return HistGradientBoostingRegressor(loss="least_squares", verbose=1)
