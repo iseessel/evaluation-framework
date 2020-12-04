@@ -239,7 +239,7 @@ for dataset in DATASETS:
         'dataset': f'silicon-badge-274423.stock_model_evaluation.{dataset}',
         'client': bigquery.Client(project='silicon-badge-274423'),
         'num_candidate_stocks': 40,
-        'target_table_id': f'silicon-badge-274423.portfolio.{dataset}_005'
+        'target_table_id': f'silicon-badge-274423.portfolio.{dataset}_01'
     }
 
     x = PortfolioCreator(**kwargs)

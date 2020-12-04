@@ -66,8 +66,8 @@ class NonLinearOptimization:
 
         # sets bounds for variables, each weight is between 0 and 1. .
         # a = (0, 1)
-        # a = (0, 0.1)
-        a = (0, 0.05)
+        a = (0, 0.1)
+        # a = (0, 0.05)
         print(f"Diversification: {a}")
         # Enforce diversification
         # a = (0, 0.05)
