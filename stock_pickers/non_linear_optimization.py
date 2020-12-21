@@ -13,6 +13,7 @@ class NonLinearOptimization:
         self.client = kwargs['client']
         self.correlation_matrix = kwargs['correlation_matrix']
         self.bond_return = kwargs['bond_return']
+        self.options = kwargs['options']
         self.stds = 1
 
     def pick(self):
@@ -64,14 +65,24 @@ class NonLinearOptimization:
             x = [item / sum(x) for item in x]
             return x
 
-        # sets bounds for variables, each weight is between 0 and 1. .
-        # a = (0, 1)
-        a = (0, 0.1)
-        # a = (0, 0.05)
+        # # sets bounds for variables, each weight is between 0 and 1. .
+        # # a = (0, 1)
+        # a = (0, 0.1)
+        # # a = (0, 0.05)
+        # print(f"Diversification: {a}")
+        # # Enforce diversification
+        # # a = (0, 0.05)
+        # bnds = [(a)] * (len(returns) - 1)
+
+        a = self.options['constraint']
+        if self.options['constrain_bonds']:
+            bnds = [(a)] * (len(returns) - 1)
+        else:
+            bnds = [(a)] * (len(returns) - 2)
+            bnds = bnds + [(0, 1)]
+
         print(f"Diversification: {a}")
-        # Enforce diversification
-        # a = (0, 0.05)
-        bnds = [(a)] * (len(returns) - 1)
+        print(f"Bonds restricted: {bnds[-1]}")
 
         # these are the constraints, we must have the weights sum to 1
         cons = []

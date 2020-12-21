@@ -23,7 +23,7 @@ Implementation Details Todos:
     3. 30 null targets.
 """
 
-START_DATE = '1980-01-01'
+START_DATE = '1997-01-01'
 TRADING_DAYS = 253
 TIME_LAG = 1
 RAW_FEATURES = [
@@ -64,45 +64,14 @@ Fetch returns series from Bigquery.
     3. Remove any rows where prc is null (NB: Returns are always null the first day a stock goes public).
 """
 
-QUERY = f"""
-    SELECT
-      permno,
-      date,
-      ret,
-      COALESCE((
-      SELECT
-        MIN(date)
-      FROM
-        `silicon-badge-274423.financial_datasets.sp_timeseries_daily` std2
-      WHERE
-        std1.permno = std2.permno
--- Predict 6 months in the future. Note, may not always be exactly 6 months due to weekends/holidays.
-        AND std2.date >= DATE_ADD(std1.date, INTERVAL 6 MONTH)), DATE_ADD(std1.date, INTERVAL 6 MONTH))  as prediction_date
-    FROM
-      `silicon-badge-274423.financial_datasets.sp_timeseries_daily` std1
-    WHERE
-      permno IN (
-      SELECT
-        DISTINCT permno
-      FROM
-        `silicon-badge-274423.features.price_features_v0`
-        # SELECT PERMNO FROM `silicon-badge-274423.financial_datasets.sp_constituents_historical` WHERE finish > '{START_DATE}'
-        )
-      AND date > '{START_DATE}'
-      AND permno NOT IN (
-      SELECT
-        permno
-      FROM
-        `silicon-badge-274423.financial_datasets.sp_timeseries_daily`
-      WHERE
-        date > '{START_DATE}'
-        AND prc IS NULL
-      GROUP BY
-        permno
-      HAVING
-        COUNT(*) > 5 )
-      AND prc IS NOT NULL
- """
+QUERY = """
+SELECT
+    permno, date, ret, prediction_date
+FROM
+    `silicon-badge-274423.features.price_features_v6`
+WHERE
+  date >= '1998-01-01'
+"""
 
 # Fetch Stock Prices
 print("Fetching stock prices. May take a few minutes.")
@@ -153,18 +122,19 @@ by_permno = merged_df.groupby('permno')
 six_mos = int(TRADING_DAYS / 2)
 target_volatility = by_permno['log_ret'].rolling(
     window=six_mos).std() * np.sqrt(six_mos)
-target_volatility = fix_nested_index(target_volatility, ['target_volatility'])
-merged_df['target_volatility'] = target_volatility
+target_volatility = fix_nested_index(target_volatility, ['target_vol'])
+merged_df['target_vol'] = target_volatility
 
-vols = merged_df[['target_volatility', 'permno', 'date']]
-vols.columns = ['target', 'permno', 'date']
+vols = merged_df[['target_vol', 'permno', 'date']]
+vols.columns = ['target_vol', 'permno', 'date']
 
 merged_df = merged_df.merge(vols, how='left', left_on=[
                             'prediction_date', 'permno'], right_on=['date', 'permno'])
 merged_df = merged_df[['permno', 'date_x',
-                       'prediction_date', 'ret', 'vwretd', 'target', 'log_ret']]
+                       'prediction_date', 'ret', 'vwretd', 'target_vol_y', 'log_ret']]
+
 merged_df.columns = ['permno', 'date', 'prediction_date',
-                     'ret', 'vwretd', 'target', 'log_ret']
+                     'ret', 'vwretd', 'target_vol', 'log_ret']
 
 """
     Gain Loss %: (Stock[-1] - Stock[0]) * 100 / (Stock[0])
@@ -174,6 +144,23 @@ by_permno = merged_df.groupby('permno')
 merged_df['cum_ret_stock'] = by_permno.cum_ret_stock.cumprod()
 merged_df['gain_loss'] = by_permno.cum_ret_stock.pct_change(
     periods=TRADING_DAYS)
+
+"""
+    Returns Target Goes Here
+"""
+cum_ret = merged_df[['permno', 'date', 'cum_ret_stock']]
+
+merged_df = merged_df.merge(cum_ret, how='left', left_on=[
+                            'prediction_date', 'permno'], right_on=['date', 'permno'])
+
+merged_df['target'] = (merged_df['cum_ret_stock_y'] -
+                       merged_df['cum_ret_stock_x']) / (merged_df['cum_ret_stock_x'])
+merged_df = merged_df[['permno', 'date_x', 'prediction_date',
+                       'ret', 'vwretd', 'cum_ret_stock_x', 'target', 'target_vol', 'log_ret', 'gain_loss']]
+merged_df.columns = ['permno', 'date', 'prediction_date',
+                     'ret', 'vwretd', 'cum_ret_stock', 'target', 'target_vol', 'log_ret', 'gain_loss']
+by_permno = merged_df.groupby('permno')
+
 
 by_permno = merged_df.groupby('permno')
 
@@ -356,14 +343,16 @@ merged_df = merged_df.merge(
 
 # print("Finished calculating local and global z-scores.")
 print("Finished calculating local z-scores.")
-final_df = merged_df[FINAL_FEATURES + ['target']]
+pdb.set_trace()
+final_df = merged_df[FINAL_FEATURES + ['target', 'target_vol']]
+final_df = final_df.dropna()
 
 """
     Upload to Bigquery.
     TODO: This was stalling indefinitely. Have uploaded to bigquery manually.
 """
 # TODO: Make this a utils class. Improve this method.
-final_df.to_csv('price_features_vol_v3.csv', index=False)
+final_df.to_csv('price_features_vol_v7.csv', index=False)
 # job_config = bigquery.LoadJobConfig(
 #   source_format=bigquery.SourceFormat.CSV, skip_leading_rows=1,
 #   autodetect=True,

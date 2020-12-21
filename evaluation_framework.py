@@ -99,14 +99,20 @@ class EvaluationFramework:
 
         return df
 
-    def __get_train_test(self, df, train_start, train_end):
+    def __get_train_test(self, df, sp_historical_df, train_start, train_end):
+        # Only get S&P constituents.
+        sp_historical_df = sp_historical_df[sp_historical_df.start <= train_end]
+        sp_historical_df = sp_historical_df[sp_historical_df.finish >= train_end]
+
+        df = df[df.permno.isin(sp_historical_df.PERMNO.tolist())]
+
         # Get dataframe with last known predictions.
         train_df = df[df.date >= train_start]
         train_df = train_df[train_df.prediction_date <= train_end]
 
         # TODO: Refactor test dataset for different testing strategies.
         # Get prediction dates.
-        features = set(['permno', 'date', 'prediction_date', ]
+        features = set(['permno', 'date', 'prediction_date']
                        ).union(self.features)
 
         x_train = train_df.drop('target', axis=1)[features]
@@ -135,15 +141,21 @@ class EvaluationFramework:
 
         return (x_train, y_train, x_test, y_test, y_train_vol, y_test_vol)
 
+    def __get_sp_historical(self):
+        QUERY = "SELECT * FROM `silicon-badge-274423.financial_datasets.sp_constituents_historical`"
+
+        return self.client.query(QUERY).to_dataframe()
+
     def __eval_multi_stock(self):
         stock_data = self.__get_stock_data()
         timeframes = self.__get_timeframes()
+        sp_historical_df = self.__get_sp_historical()
 
         stock_results = []
         for time in timeframes:
             print(f"Starting Timeframe: {self.start} - {time}")
             x_train, y_train, x_test, y_test, y_train_vol, y_test_vol = self.__get_train_test(
-                stock_data, self.start, time)
+                stock_data, sp_historical_df, self.start, time)
 
             print(
                 f"X train: From ({x_train.date.min()} - {x_train.date.max() }). Num examples: { len(x_train) }\n"

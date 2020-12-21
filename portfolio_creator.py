@@ -1,11 +1,13 @@
 """
   Gets stock predictions from Biquery and creates a portfolio
 """
+import pdb
 from stock_pickers.non_linear_optimization import NonLinearOptimization
 from google.cloud import bigquery
 from dateutil.relativedelta import relativedelta
 import pandas as pd
 import os
+import random
 
 
 class PortfolioCreator:
@@ -15,8 +17,10 @@ class PortfolioCreator:
         self.client = kwargs['client']
         self.num_candidate_stocks = kwargs['num_candidate_stocks']
         self.target_table_id = kwargs['target_table_id']
+        self.options = kwargs['options']
 
     def pick_stocks(self):
+        print(f"Predicting {self.dataset} {self.options}")
         predictions = self.__get_predictions()
         all_permnos = predictions.permno.astype('string').unique().to_numpy()
         daily_returns = self.__get_target_returns(
@@ -28,7 +32,11 @@ class PortfolioCreator:
 
         # Feed in predictions to the stock picker for each prediction date.
         for date, group in predictions.groupby('date'):
+            # SMALL BUG WHERE OCASSIONALLY TWO PREDICTIONS FOR A PERMNO
+            group = group.drop_duplicates(subset=['permno'], keep='last')
+
             print(f"Starting stock picking for: { date.strftime('%Y-%m-%d') }")
+            print(f"Considering { len(group) } stocks.")
             bond_return = bonds_df[bonds_df.date == date]
             prediction_date = group.prediction_date.min()
             bond_return = bond_return.ret.iloc[0]
@@ -46,7 +54,8 @@ class PortfolioCreator:
                 'predictions': candidate_returns,
                 'client': self.client,
                 'correlation_matrix': correlation_matrix,
-                'bond_return': bond_return
+                'bond_return': bond_return,
+                'options': self.options
             }
 
             stock_picker = self.stock_picker(**kwargs)
@@ -60,7 +69,7 @@ class PortfolioCreator:
                     data = [date.strftime('%Y-%m-%d'), prediction_date, permno, weight, bond_return,
                             self.dataset, self.num_candidate_stocks, self.stock_picker.__class__.__name__]
 
-                    cum_ret = cum_ret + bond_return
+                    cum_ret = cum_ret + (bond_return * weight)s
                     weight_results.append(data)
                 else:
                     prediction_date = group[group.permno ==
@@ -84,7 +93,8 @@ class PortfolioCreator:
 
     def __upload_weights_to_bigquery(self, weight_results):
         my_df = pd.DataFrame(weight_results)
-        my_df.to_csv('temp.csv', index=False, header=False)
+        hash = random.getrandbits(128)
+        my_df.to_csv(f'temp_{hash}.csv', index=False, header=False)
 
         job_config = bigquery.LoadJobConfig(
             source_format=bigquery.SourceFormat.CSV, skip_leading_rows=1,
@@ -92,13 +102,13 @@ class PortfolioCreator:
             write_disposition='WRITE_TRUNCATE'
         )
 
-        with open('temp.csv', "rb") as source_file:
+        with open(f'temp_{hash}.csv', "rb") as source_file:
             job = self.client.load_table_from_file(
                 source_file, self.target_table_id, job_config=job_config)
 
         job.result()  # Waits for the job to complete.
 
-        os.remove("temp.csv")
+        os.remove(f"temp_{hash}.csv")
 
     def __get_bond_returns(self, min_date):
         # Add some padding in case we need to forward fill.
@@ -159,6 +169,10 @@ class PortfolioCreator:
         return df
 
     def __get_predictions(self):
+        # THIS IS HACKY REMOVE THIS.
+        dates = ("2012-12-31", "2016-07-01", "2017-12-29", "2010-12-31", "2014-07-01", "2019-06-28", "2015-12-31", "2012-06-29", "2013-12-31", "2017-06-30",
+                 "2010-07-01", "2018-12-31", "2011-12-30", "2015-07-01", "2016-12-30", "2009-12-31", "2013-07-01", "2014-12-31", "2018-06-29", "2011-07-01")
+
         QUERY = f"""
             SELECT
                 pred.permno, date,  prediction_date, return_prediction, return_target, vol_prediction
@@ -171,7 +185,7 @@ class PortfolioCreator:
 
             --   Only get stocks that are in the S&P at prediction time. Otherwise we introduce leakage into the process.
             WHERE
-                start <= date
+                start <= date AND date in {dates}
             ORDER BY
                 date, permno
         """
@@ -207,9 +221,6 @@ class PortfolioCreator:
         return [correlations.columns.tolist()] + correlations.values.tolist()
 
     def __rank_by_sharpe_ratio(self, predictions, bond_return):
-        if len(predictions) != len(predictions.permno.unique()):
-            raise
-
         predictions['sharpe'] = (
             predictions['return_prediction'] / predictions['vol_prediction'])
         predictions = predictions.sort_values(
@@ -224,23 +235,64 @@ class PortfolioCreator:
 
         return predictions
 
+# V1 used this.
+# DATASETS = [
+#     'fb_prophet_sp_daily_features_v0_prod_t',
+#     'boosted_tree_features_vol_v4_light_prod',
+#     'lstm_model_price_features_vol_v4_prod',
+#     'lstm_model_price_features_vol_v4_prod_relu',
+#     'lstm_model_price_features_vol_v5_prod'
+# ]
 
+
+# DATASETS = [
+#     'fb_prophet_sp_daily_features_v0_prod_t',
+#     'boosted_tree_features_vol_v4_light_prod',
+#     'lstm_model_price_features_vol_v4_prod',
+#     'lstm_model_price_features_vol_v4_prod_relu',
+#     'lstm_model_price_features_vol_v5_prod'
+# ]
 DATASETS = [
-    'fb_prophet_sp_daily_features_v0_prod_t',
-    'boosted_tree_features_vol_v4_light_prod',
-    'lstm_model_price_features_vol_v4_prod',
-    'lstm_model_price_features_vol_v4_prod_relu',
-    'lstm_model_price_features_vol_v5_prod'
+    'lstm_model_price_features_vol_v8_prod',
+    'lstm_model_tanh_price_features_vol_v7_prod',
+    'lstm_model_relu_price_features_vol_v7_prod',
+    'boosted_tree_price_features_vol_v7_prod'
+    'lstm_model_relu_price_features_vol_v8_prod'
 ]
 
-for dataset in DATASETS:
-    kwargs = {
-        'stock_picker': NonLinearOptimization,
-        'dataset': f'silicon-badge-274423.stock_model_evaluation.{dataset}',
-        'client': bigquery.Client(project='silicon-badge-274423'),
-        'num_candidate_stocks': 40,
-        'target_table_id': f'silicon-badge-274423.portfolio.{dataset}_01'
-    }
+weight_constraints = [
+    (0, 1),
+    (0, 0.1),
+    (0, 0.05)
+]
 
-    x = PortfolioCreator(**kwargs)
-    x.pick_stocks()
+constrain_bonds = [True, False]
+dset = []
+
+for dataset in DATASETS:
+    for constraint in weight_constraints:
+        for bool in constrain_bonds:
+            target_table = f'silicon-badge-274423.portfolio.{dataset}_{str(int(constraint[1] * 100))}_bonds_{str(bool)}'
+            dset.append(target_table)
+            # print(DATASETS)
+            # print(weight_constraints)
+            # print(constrain_bonds)
+            #
+            # target_table = f'silicon-badge-274423.portfolio.{dataset}_{str(int(constraint[1] * 100))}_bonds_{str(bool)}'
+            # print(target_table)
+            #
+            # kwargs = {
+            #     'stock_picker': NonLinearOptimization,
+            #     'dataset': f'silicon-badge-274423.stock_model_evaluation.{dataset}',
+            #     'client': bigquery.Client(project='silicon-badge-274423'),
+            #     'num_candidate_stocks': 40,
+            #     'target_table_id': target_table,
+            #     'options': {
+            #         'constraint': constraint,
+            #         'constrain_bonds': bool
+            #     }
+            # }
+            #
+            # x = PortfolioCreator(**kwargs)
+            # x.pick_stocks()
+print(dset)
