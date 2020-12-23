@@ -1,3 +1,4 @@
+# This model was taking an inordinate amount of time.
 # from sklearn.ensemble import GradientBoostingRegressor
 # explicitly require this experimental feature
 from sklearn.experimental import enable_hist_gradient_boosting  # noqa

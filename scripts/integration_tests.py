@@ -1,3 +1,7 @@
+"""
+    This file can be used as the primary testing tool for the framework.
+"""
+
 from models.fb_prophet import FBProphet
 from stock_predictions import EvaluationFramework
 from models.lstm import LSTMModel
