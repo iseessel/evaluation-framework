@@ -1,6 +1,6 @@
 """
-  Gets stock predictions from Biquery and creates a portfolio
-"""
+     Gets stock predictions from Biquery and creates a portfolio
+   """
 import pdb
 from stock_pickers.non_linear_optimization import NonLinearOptimization
 from google.cloud import bigquery
@@ -235,23 +235,22 @@ class PortfolioCreator:
 
         return predictions
 
+
+"""
+    todo use
+"""
+
+# V0 used this.
+# DATASETS = [
+#     'fb_prophet_sp_daily_features_v0_prod_t',
+#     'boosted_tree_features_vol_v4_light_prod',
+#     'lstm_model_price_features_vol_v4_prod',
+#     'lstm_model_price_features_vol_v4_prod_relu',
+#     'lstm_model_price_features_vol_v5_prod'
+# ]
+
+
 # V1 used this.
-# DATASETS = [
-#     'fb_prophet_sp_daily_features_v0_prod_t',
-#     'boosted_tree_features_vol_v4_light_prod',
-#     'lstm_model_price_features_vol_v4_prod',
-#     'lstm_model_price_features_vol_v4_prod_relu',
-#     'lstm_model_price_features_vol_v5_prod'
-# ]
-
-
-# DATASETS = [
-#     'fb_prophet_sp_daily_features_v0_prod_t',
-#     'boosted_tree_features_vol_v4_light_prod',
-#     'lstm_model_price_features_vol_v4_prod',
-#     'lstm_model_price_features_vol_v4_prod_relu',
-#     'lstm_model_price_features_vol_v5_prod'
-# ]
 DATASETS = [
     'lstm_model_price_features_vol_v8_prod',
     'lstm_model_tanh_price_features_vol_v7_prod',
@@ -282,7 +281,7 @@ for dataset in DATASETS:
             # print(target_table)
             #
             # kwargs = {
-            #     'stock_picker': NonLinearOptimization,
+            #     'stock_picker': 'non_linear_optimization_v0',
             #     'dataset': f'silicon-badge-274423.stock_model_evaluation.{dataset}',
             #     'client': bigquery.Client(project='silicon-badge-274423'),
             #     'num_candidate_stocks': 40,
