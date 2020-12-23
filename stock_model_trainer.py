@@ -11,11 +11,9 @@ class StockModelTrainer:
       :param permno: Int representing the Permno of the stock.
       :param train: Training dataframe. Date as a datetime column. The last value of train is considered "t" or the "prediction_date".
       :param test: Test dataframe. Same format as train, except the future values.
-      NB: This is DEPRECATED
-      :param evaluation_timeframe: Array<Int>. Timeframes to predict (see below).
 
       e.g. With the following parameters:
-        Model = FBPRophet, Permno = AAPL, train = train_dataframe, test = test_dataframe, evaluation_timeframe = [1,7,30,90].
+        Model = FBPRophet, Permno = AAPL, train = train_dataframe, test = test_dataframe
 
         We can:
           1. Train model on train data.
@@ -54,26 +52,17 @@ class StockModelTrainer:
         if not 'vol_target' in predictions.columns:
             # Order will be preserved.
             predictions['vol_target'] = self.y_test_vol.reshape(-1)
-            predictions['vol_MSE'] = (
-                predictions.vol_prediction - predictions.vol_target)**2
-            predictions['vols_MAPE'] = (
-                predictions.vol_prediction - predictions.vol_target)
 
-        predictions['returns_MSE'] = (
-            predictions.return_prediction - predictions.return_target)**2
-        predictions['returns_MAPE'] = (
-            predictions.return_prediction - predictions.return_target)
         predictions['returns_correct_direction'] = (
             predictions.return_prediction * predictions.return_target) >= 0
 
         predictions['model'] = self.model.__class__.__name__
         predictions['train_start'] = self.train_start
-        predictions['train_end'] = self.train_start
-        predictions['dataset'] = self.train_end
-        # predictions['within_pred_int']=predictions.return_prediction - 2 * predictions.std_prediction <= predictions.return_actual <= predictions.return_prediction + 2 * predictions.std_prediction:
+        predictions['train_end'] = self.train_end
+        predictions['dataset'] = self.dataset
 
-        cols = ['permno', 'date', 'prediction_date', 'return_prediction', 'return_target', 'vol_prediction', 'vol_target', 'vol_MSE',
-                'vols_MAPE', 'returns_MSE', 'returns_MAPE', 'returns_correct_direction', 'model', 'train_start', 'train_end', 'dataset']
+        cols = ['permno', 'date', 'prediction_date', 'return_prediction', 'return_target', 'vol_prediction', 'vol_target',
+                'returns_correct_direction', 'model', 'train_start', 'train_end', 'dataset']
         predictions = predictions[cols]
 
         return predictions
