@@ -102,7 +102,31 @@ class NonLinearOptimization:
         # may want to change maxiter for large portfolios, may not converge fast so this will give an approximate solution
         sol = scipy.optimize.minimize(objective, x0, method='SLSQP', bounds=bnds, constraints=cons, options={
                                       'disp': True, 'maxiter': 2000000})
+        
+        ### Add second stage optimization here, did not change anything else
+        
+        #Store values from previous optimization
+        sol=sol.x
+        prevreturn=ret(sol)
+        prevvar=var(sol)
+        x0=sol
+        
+        # Add Constraints to ensure solution is as good as in first stage, and weight constraints
+        cons=[]
+        
+        con = {'type': 'eq', 'fun': lambda x: 1-sum(x[i-1] for i in range(1,len(returns)))}
+        cons = np.append(cons, con)
 
+
+        con = {'type': 'ineq', 'fun': lambda x: -1*var(x)**0.5+prevvar**0.5}
+        cons = np.append(cons, con)
+
+        con = {'type': 'ineq', 'fun': lambda x: ret(x)-prevreturn}
+        cons = np.append(cons, con)
+        
+        #solve, minimize variance
+        sol=scipy.optimize.minimize(var,x0,method='SLSQP',bounds=bnds,constraints=cons,options={'disp': True ,'maxiter':200000})
+        
         return sol.x
 
     def __get_predicted_returns(self):
