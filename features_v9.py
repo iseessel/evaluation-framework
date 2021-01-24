@@ -37,7 +37,7 @@ def glue(x_train, y_train, x_test, y_test, y_train_vol, y_test_vol):
     return (x_train, y_train, x_test, y_test, permno_dates, y_train_vol, y_test_vol)
 
 
-DATASET = 'silicon-badge-274423.features.price_features_vol_v8'
+DATASET = 'silicon-badge-274423.features.features_v9'
 
 QUERY = f"""
   SELECT
@@ -55,13 +55,13 @@ args = {
     'permnos': all_permnos,
     'dataset': DATASET,
     'features': ['adjusted_rets', 'date', 'permno', 'prediction_date'],
-    'start': '2000-01-01',
+    'start': '1970-01-01',
     'end': '2019-12-31',
-    'offset': '2010-01-01',
+    'offset': '1980-01-01',
     'increments': 6,
     'hypers': {},
     'evaluation_timeframe': [180],
-    'evaluation_table_id': f'silicon-badge-274423.stock_model_evaluation.lstm_model_relu_price_features_vol_v8_prod',
+    'evaluation_table_id': f'silicon-badge-274423.stock_model_evaluation.lstm_model_features_v9_prod',
     'pooled': True,
     'glue': glue,
     'options': {
