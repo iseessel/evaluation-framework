@@ -79,13 +79,6 @@ WITH
     ABS(prc/cfacpr)
   END
     AS adjusted_prc,
-    CASE
-    # Volume is set to -99 if the value is missing. A volume of zero usually indicates that there were no trades during the time period and is usually paired with bid/ask quotes in price fields.
-      WHEN vol >= 0 THEN vol/cfacshr
-    ELSE
-    NULL
-  END
-    AS adjusted_vol,
     COALESCE((
       SELECT
         MIN(date)
@@ -112,7 +105,6 @@ SELECT
   sp_daily_features.permno,
   sp_daily_features.date,
   sp_daily_features.ret,
-  sp_daily_features.adjusted_vol,
   sp_daily_features.prediction_date
 FROM
   sp_daily_features

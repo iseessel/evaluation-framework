@@ -29,13 +29,6 @@ WITH
     ABS(prc/cfacpr)
   END
     AS adjusted_prc,
-    CASE
-    # Volume is set to -99 if the value is missing. A volume of zero usually indicates that there were no trades during the time period and is usually paired with bid/ask quotes in price fields.
-      WHEN vol >= 0 THEN vol/cfacshr
-    ELSE
-    NULL
-  END
-    AS adjusted_vol,
     COALESCE((
       SELECT
         MIN(date)
@@ -62,7 +55,6 @@ SELECT
   sp_daily_features.date,
   sp_daily_features.ret,
   sp_daily_features.adjusted_prc,
-  sp_daily_features.adjusted_vol,
   sp_daily_features.prediction_date,
   (CASE
       WHEN std.prc = 0 THEN NULL
@@ -76,7 +68,7 @@ ON
   std.permno = sp_daily_features.permno
   AND std.date = sp_daily_features.prediction_date
 WHERE
-    sp_daily_features.date >= '{ START_DATE }'
+    sp_daily_features.date >= '{ START_DATE }' AND sp_daily_features.permno
 """
 
 WINDOW_SIZE = 50
@@ -89,6 +81,7 @@ df = client.query(QUERY).to_dataframe()
 df = df.sort_values(by=['permno', 'date']).reset_index()
 df['target'] = df.groupby('permno').target.ffill()
 
+import pdb; pdb.set_trace()
 df = df.dropna()
 
 # Adjusted returns are null the first day they are reported.
@@ -106,16 +99,16 @@ def fix_nested_index(series, indeces):
 
     return series
 
-
+import pdb; pdb.set_trace()
 df['log_ret'] = np.log(1 + df['ret'])
 
 by_permno = df.groupby('permno')
 six_mos = int(TRADING_DAYS / 2)
 target_volatility = by_permno['log_ret'].rolling(
     window=six_mos).std() * np.sqrt(six_mos)
+
 target_volatility = fix_nested_index(target_volatility, ['target_vol'])
 df['target_vol'] = target_volatility
-
 # https://stackoverflow.com/questions/40084931/taking-subarrays-from-numpy-array-with-given-stride-stepsize
 
 def strided_app(a, L=WINDOW_SIZE, S=1):
@@ -174,7 +167,6 @@ features_df = pd.DataFrame({
     'prediction_date': prediction_dates
 })
 
-
 df = df[['date', 'permno', 'target_vol']]
 features_df = pd.merge(features_df, df,  how='left', left_on=['permno','prediction_date'], right_on = ['permno','date'])
 features_df['target_vol'] = features_df.groupby('permno').target_vol.ffill()
@@ -182,6 +174,7 @@ features_df = features_df[['date_x', 'permno', 'adjusted_rets', 'target', 'predi
 features_df = features_df.dropna()
 features_df = features_df.rename(columns={'date_x': 'date'})
 
+import pdb; pdb.set_trace()
 features_df.date = features_df.date.astype('string')
 features_df.prediction_date = features_df.prediction_date.astype('string')
 
