@@ -79,16 +79,21 @@ WHERE
     sp_daily_features.date >= '{ START_DATE }'
 """
 
-
 WINDOW_SIZE = 50
 
 print("Fetching data from Bigquery. Could take a few minutes.")
 client = bigquery.Client(project='silicon-badge-274423')
 df = client.query(QUERY).to_dataframe()
+
+# Forward fill target prices for when stocks become delisted and there is no 6 month later target.
+df = df.sort_values(by=['permno', 'date']).reset_index()
+df['target'] = df.groupby('permno').target.ffill()
+
 df = df.dropna()
 
 # Adjusted returns are null the first day they are reported.
 df.loc[df['ret'].isna(), 'ret'] = 0
+
 
 """
 Create target volatility.
@@ -171,13 +176,14 @@ features_df = pd.DataFrame({
 
 
 df = df[['date', 'permno', 'target_vol']]
-features_df = pd.merge(features_df, df,  how='left', left_on=['permno','date'], right_on = ['permno','date'])
+features_df = pd.merge(features_df, df,  how='left', left_on=['permno','prediction_date'], right_on = ['permno','date'])
+features_df['target_vol'] = features_df.groupby('permno').target_vol.ffill()
+features_df = features_df[['date_x', 'permno', 'adjusted_rets', 'target', 'prediction_date', 'target_vol']]
 features_df = features_df.dropna()
-features_df = features_df[['date', 'permno', 'adjusted_rets', 'target', 'prediction_date', 'target_vol']]
+features_df = features_df.rename(columns={'date_x': 'date'})
 
 features_df.date = features_df.date.astype('string')
 features_df.prediction_date = features_df.prediction_date.astype('string')
-import pdb; pdb.set_trace()
 
 """
     TODO: This was stalling indefinitely. Have uploaded to GCS manually.
