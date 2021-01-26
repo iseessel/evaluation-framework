@@ -6,6 +6,13 @@ import numpy as np
 import os
 
 """
+Ignore Warnings
+"""
+
+import warnings
+warnings.filterwarnings("ignore")
+
+"""
 Creates price features.
 
 NOTE: This is identical to price_features_v2 except we are prediction_Vol
@@ -38,7 +45,39 @@ RAW_FEATURES = [
     'returns_bull',
     'returns_bear',
     'volatility',
-    'kurtosis'
+    'kurtosis',
+    'RSI_3', 'RSI_7', 'RSI_14', 'RSI_28', 'RSI_84', 'RSI_168',
+    'pivot_max_2_indicator', 'pivot_max_2_days_since_last', 'pivot_max_2_returns_since_last',
+    'pivot_max_2_any_pivot', 'pivot_max_2_indicator_rolling_3mo', 'pivot_max_2_indicator_rolling_6mo',
+    'pivot_max_2_indicator_rolling_1yr', 'pivot_max_2_indicator_rolling_2yr', 'pivot_max_3_indicator',
+    'pivot_max_3_days_since_last', 'pivot_max_3_returns_since_last', 'pivot_max_3_any_pivot',
+    'pivot_max_3_indicator_rolling_3mo', 'pivot_max_3_indicator_rolling_6mo', 'pivot_max_3_indicator_rolling_1yr',
+    'pivot_max_3_indicator_rolling_2yr', 'pivot_max_5_indicator', 'pivot_max_5_days_since_last',
+    'pivot_max_5_returns_since_last', 'pivot_max_5_any_pivot', 'pivot_max_5_indicator_rolling_3mo',
+    'pivot_max_5_indicator_rolling_6mo', 'pivot_max_5_indicator_rolling_1yr', 'pivot_max_5_indicator_rolling_2yr',
+    'pivot_max_10_indicator', 'pivot_max_10_days_since_last', 'pivot_max_10_returns_since_last', 'pivot_max_10_any_pivot',
+    'pivot_max_10_indicator_rolling_3mo', 'pivot_max_10_indicator_rolling_6mo', 'pivot_max_10_indicator_rolling_1yr',
+    'pivot_max_10_indicator_rolling_2yr', 'pivot_max_15_indicator', 'pivot_max_15_days_since_last',
+    'pivot_max_15_returns_since_last', 'pivot_max_15_any_pivot', 'pivot_max_15_indicator_rolling_3mo',
+    'pivot_max_15_indicator_rolling_6mo', 'pivot_max_15_indicator_rolling_1yr', 'pivot_max_15_indicator_rolling_2yr',
+    'pivot_max_20_indicator', 'pivot_max_20_days_since_last', 'pivot_max_20_returns_since_last', 'pivot_max_20_any_pivot',
+    'pivot_max_20_indicator_rolling_3mo', 'pivot_max_20_indicator_rolling_6mo', 'pivot_max_20_indicator_rolling_1yr',
+    'pivot_max_20_indicator_rolling_2yr', 'pivot_min_2_indicator', 'pivot_min_2_days_since_last',
+    'pivot_min_2_returns_since_last', 'pivot_min_2_any_pivot', 'pivot_min_2_indicator_rolling_3mo',
+    'pivot_min_2_indicator_rolling_6mo', 'pivot_min_2_indicator_rolling_1yr', 'pivot_min_2_indicator_rolling_2yr',
+    'pivot_min_3_indicator', 'pivot_min_3_days_since_last', 'pivot_min_3_returns_since_last', 'pivot_min_3_any_pivot',
+    'pivot_min_3_indicator_rolling_3mo', 'pivot_min_3_indicator_rolling_6mo', 'pivot_min_3_indicator_rolling_1yr',
+    'pivot_min_3_indicator_rolling_2yr', 'pivot_min_5_indicator', 'pivot_min_5_days_since_last',
+    'pivot_min_5_returns_since_last', 'pivot_min_5_any_pivot', 'pivot_min_5_indicator_rolling_3mo',
+    'pivot_min_5_indicator_rolling_6mo', 'pivot_min_5_indicator_rolling_1yr', 'pivot_min_5_indicator_rolling_2yr',
+    'pivot_min_10_indicator', 'pivot_min_10_days_since_last', 'pivot_min_10_returns_since_last', 'pivot_min_10_any_pivot',
+    'pivot_min_10_indicator_rolling_3mo', 'pivot_min_10_indicator_rolling_6mo', 'pivot_min_10_indicator_rolling_1yr',
+    'pivot_min_10_indicator_rolling_2yr', 'pivot_min_15_indicator', 'pivot_min_15_days_since_last',
+    'pivot_min_15_returns_since_last', 'pivot_min_15_any_pivot', 'pivot_min_15_indicator_rolling_3mo',
+    'pivot_min_15_indicator_rolling_6mo', 'pivot_min_15_indicator_rolling_1yr', 'pivot_min_15_indicator_rolling_2yr',
+    'pivot_min_20_indicator', 'pivot_min_20_days_since_last', 'pivot_min_20_returns_since_last', 'pivot_min_20_any_pivot',
+    'pivot_min_20_indicator_rolling_3mo', 'pivot_min_20_indicator_rolling_6mo', 'pivot_min_20_indicator_rolling_1yr',
+    'pivot_min_20_indicator_rolling_2yr'
 ]
 
 FINAL_FEATURES = [
@@ -50,7 +89,38 @@ FINAL_FEATURES = [
     'average_daily_return_local_z', 'beta_local_z', 'beta_bear_local_z',
     'beta_bull_local_z', 'gain_loss_local_z', 'kurtosis_local_z',
     'market_correlation_local_z', 'returns_bear_local_z', 'returns_bull_local_z',
-    'volatility_local_z'
+    'volatility_local_z','RSI_3', 'RSI_7', 'RSI_14', 'RSI_28', 'RSI_84', 'RSI_168',
+    'pivot_max_2_indicator', 'pivot_max_2_days_since_last', 'pivot_max_2_returns_since_last',
+    'pivot_max_2_any_pivot', 'pivot_max_2_indicator_rolling_3mo', 'pivot_max_2_indicator_rolling_6mo',
+    'pivot_max_2_indicator_rolling_1yr', 'pivot_max_2_indicator_rolling_2yr', 'pivot_max_3_indicator',
+    'pivot_max_3_days_since_last', 'pivot_max_3_returns_since_last', 'pivot_max_3_any_pivot',
+    'pivot_max_3_indicator_rolling_3mo', 'pivot_max_3_indicator_rolling_6mo', 'pivot_max_3_indicator_rolling_1yr',
+    'pivot_max_3_indicator_rolling_2yr', 'pivot_max_5_indicator', 'pivot_max_5_days_since_last',
+    'pivot_max_5_returns_since_last', 'pivot_max_5_any_pivot', 'pivot_max_5_indicator_rolling_3mo',
+    'pivot_max_5_indicator_rolling_6mo', 'pivot_max_5_indicator_rolling_1yr', 'pivot_max_5_indicator_rolling_2yr',
+    'pivot_max_10_indicator', 'pivot_max_10_days_since_last', 'pivot_max_10_returns_since_last', 'pivot_max_10_any_pivot',
+    'pivot_max_10_indicator_rolling_3mo', 'pivot_max_10_indicator_rolling_6mo', 'pivot_max_10_indicator_rolling_1yr',
+    'pivot_max_10_indicator_rolling_2yr', 'pivot_max_15_indicator', 'pivot_max_15_days_since_last',
+    'pivot_max_15_returns_since_last', 'pivot_max_15_any_pivot', 'pivot_max_15_indicator_rolling_3mo',
+    'pivot_max_15_indicator_rolling_6mo', 'pivot_max_15_indicator_rolling_1yr', 'pivot_max_15_indicator_rolling_2yr',
+    'pivot_max_20_indicator', 'pivot_max_20_days_since_last', 'pivot_max_20_returns_since_last', 'pivot_max_20_any_pivot',
+    'pivot_max_20_indicator_rolling_3mo', 'pivot_max_20_indicator_rolling_6mo', 'pivot_max_20_indicator_rolling_1yr',
+    'pivot_max_20_indicator_rolling_2yr', 'pivot_min_2_indicator', 'pivot_min_2_days_since_last',
+    'pivot_min_2_returns_since_last', 'pivot_min_2_any_pivot', 'pivot_min_2_indicator_rolling_3mo',
+    'pivot_min_2_indicator_rolling_6mo', 'pivot_min_2_indicator_rolling_1yr', 'pivot_min_2_indicator_rolling_2yr',
+    'pivot_min_3_indicator', 'pivot_min_3_days_since_last', 'pivot_min_3_returns_since_last', 'pivot_min_3_any_pivot',
+    'pivot_min_3_indicator_rolling_3mo', 'pivot_min_3_indicator_rolling_6mo', 'pivot_min_3_indicator_rolling_1yr',
+    'pivot_min_3_indicator_rolling_2yr', 'pivot_min_5_indicator', 'pivot_min_5_days_since_last',
+    'pivot_min_5_returns_since_last', 'pivot_min_5_any_pivot', 'pivot_min_5_indicator_rolling_3mo',
+    'pivot_min_5_indicator_rolling_6mo', 'pivot_min_5_indicator_rolling_1yr', 'pivot_min_5_indicator_rolling_2yr',
+    'pivot_min_10_indicator', 'pivot_min_10_days_since_last', 'pivot_min_10_returns_since_last', 'pivot_min_10_any_pivot',
+    'pivot_min_10_indicator_rolling_3mo', 'pivot_min_10_indicator_rolling_6mo', 'pivot_min_10_indicator_rolling_1yr',
+    'pivot_min_10_indicator_rolling_2yr', 'pivot_min_15_indicator', 'pivot_min_15_days_since_last',
+    'pivot_min_15_returns_since_last', 'pivot_min_15_any_pivot', 'pivot_min_15_indicator_rolling_3mo',
+    'pivot_min_15_indicator_rolling_6mo', 'pivot_min_15_indicator_rolling_1yr', 'pivot_min_15_indicator_rolling_2yr',
+    'pivot_min_20_indicator', 'pivot_min_20_days_since_last', 'pivot_min_20_returns_since_last', 'pivot_min_20_any_pivot',
+    'pivot_min_20_indicator_rolling_3mo', 'pivot_min_20_indicator_rolling_6mo', 'pivot_min_20_indicator_rolling_1yr',
+    'pivot_min_20_indicator_rolling_2yr'
 ]
 
 print(f"Calculating the following features: { FINAL_FEATURES }")
@@ -115,7 +185,8 @@ SELECT
   sp_daily_features.adjusted_vol,
   sp_daily_features.prediction_date,
   sp_daily_features.bidlo,
-  sp_daily_features.askhi
+  sp_daily_features.askhi,
+  sp_daily_features.adjusted_prc,
   (CASE
       WHEN std.prc = 0 THEN NULL
     ELSE
@@ -128,7 +199,7 @@ ON
   std.permno = sp_daily_features.permno
   AND std.date = sp_daily_features.prediction_date
 WHERE
-    sp_daily_features.date >= '{ START_DATE }'
+    sp_daily_features.date >= '{ START_DATE }' AND sp_daily_features.permno IN ('14593','13407')
 """
 
 # Fetch Stock Prices
@@ -167,6 +238,9 @@ sp_df = sp_df.sort_values(by=['date']).reset_index()
 sp_df.loc[0, 'vwretd'] = 0
 merged_df = returns_df.merge(sp_df, on='date', how='left')
 
+
+# Saving the CSV file to Unit Test the code for Pivot Points
+# merged_df.to_csv("merged_df_new.csv")
 """
     Create Pivot Points.
 """
@@ -174,6 +248,238 @@ merged_df = returns_df.merge(sp_df, on='date', how='left')
 # Step 1. Create isPivot indicator variables for time series for different.
 
 # Step 2. Use rolling function to create pivot points for each time series day.
+# Create a dictionary of key- permnos and value - dataframes of that permno
+
+ls_permno = ['14593','13407']
+# ls_permno = ['14593','13407','13856','22592','84788','87267','14541','64186','76076']
+# ls_permno = list(set(merged_df['permno']))
+merged_df = merged_df[merged_df['permno'].isin(ls_permno)]
+
+dic_permno = {}
+for permn in ls_permno:
+    dic_permno[permn] = merged_df[merged_df['permno'] == permn]
+
+def computeRSI (data, time_window):
+    diff = data.diff(1).dropna()        # diff in one field(one day)
+
+    #this preservers dimensions off diff values
+    up_chg = 0 * diff
+    down_chg = 0 * diff
+
+    # up change is equal to the positive difference, otherwise equal to zero
+    up_chg[diff > 0] = diff[ diff>0 ]
+
+    # down change is equal to negative deifference, otherwise equal to zero
+    down_chg[diff < 0] = diff[ diff < 0 ]
+
+    # check pandas documentation for ewm
+    # https://pandas.pydata.org/pandas-docs/stable/reference/api/pandas.DataFrame.ewm.html
+    # values are related to exponential decay
+    # we set com=time_window-1 so we get decay alpha=1/time_window
+    up_chg_avg   = up_chg.ewm(com=time_window-1 , min_periods=time_window).mean()
+    down_chg_avg = down_chg.ewm(com=time_window-1 , min_periods=time_window).mean()
+
+    rs = abs(up_chg_avg/down_chg_avg)
+    rsi = 100 - 100/(1+rs)
+    return rsi
+
+ls_windowsize = [3,7,14,28,28*3,28*6]
+
+for permn in ls_permno:
+    df = dic_permno[permn]
+    for window_size in ls_windowsize:
+        df['RSI'+"_"+str(window_size)] = computeRSI(df['adjusted_prc'], window_size)
+
+def computePivotMax (df, time_window):
+    dfcopy=df.copy()
+
+    pivots=[]
+    dates=[]
+    ls_index_pivot = []
+    ls_pivot_indicator = []
+    counter=0
+    lastPivot=0
+
+    Rangev=[0]*time_window*2
+    dateRangev=[0]*time_window*2
+
+    dfcopy["pivot_max_"+str(time_window)+"_indicator"]=0
+
+    ls_days_since_last_pivot = []
+
+    return_since_last_pivot = []
+
+    ls_is_any_pivot = []
+
+    flag_pivot = False
+
+    lastPivotDate = None
+
+    lastPivotPrice = None
+
+    for i in dfcopy.index:
+        currentMax=max(Rangev,default=0)
+        value=round(dfcopy["askhi"][i],2)
+
+            #value=round(df["Low"][i],2)
+
+        Rangev=Rangev[1:time_window*2-1]
+        Rangev.append(value)
+
+        dateRangev=dateRangev[1:time_window*2-1]
+        date = dfcopy["date"][i]
+        dateRangev.append(i)
+
+        if currentMax==max(Rangev,default=0):
+            counter=counter+1
+        else:
+            counter=0
+        if counter==time_window:
+            flag_pivot = True
+            lastPivot=currentMax
+            dateloc=Rangev.index(lastPivot)
+            lastDate=dateRangev[dateloc]
+            pivots.append(lastPivot)
+            dates.append(lastDate)
+            ls_index_pivot.append(i)
+
+            lastPivotDate = dfcopy["date"][i]
+            lastPivotPrice = dfcopy["adjusted_prc"][i]
+            dfcopy["pivot_max_"+str(time_window)+"_indicator"][i]=1
+
+        if flag_pivot == False:
+            ls_days_since_last_pivot.append(0)
+            return_since_last_pivot.append(0)
+            ls_is_any_pivot.append(1)
+        else:
+            days_since = (pd.to_datetime(dfcopy["date"][i]) - pd.to_datetime(lastPivotDate)).days
+            ls_days_since_last_pivot.append(days_since)
+            if lastPivotPrice == 0 or lastPivotPrice == None or dfcopy["adjusted_prc"][i] == None:
+                return_since = 0
+            else:
+                return_since = (dfcopy["adjusted_prc"][i] - lastPivotPrice)/lastPivotPrice
+            return_since_last_pivot.append(return_since)
+            ls_is_any_pivot.append(0)
+
+    dic_pivot_returns = {"pivot_indictor":dfcopy["pivot_max_"+str(time_window)+"_indicator"],
+    "days_since_pivot":ls_days_since_last_pivot,
+    "return_since_pivot":return_since_last_pivot,
+    "ls_is_any_pivot":ls_is_any_pivot}
+    return dic_pivot_returns
+
+def computePivotMin (df, time_window):
+    dfcopy=df.copy()
+
+    pivots=[]
+    dates=[]
+    ls_index_pivot = []
+    ls_pivot_indicator = []
+    counter=0
+    lastPivot=0
+
+    Rangev=[0]*time_window*2
+    dateRangev=[0]*time_window*2
+
+    dfcopy["pivot_min_"+str(time_window)+"_indicator"]=0
+
+    ls_days_since_last_pivot = []
+
+    return_since_last_pivot = []
+
+    ls_is_any_pivot = []
+
+    flag_pivot = False
+
+    lastPivotDate = None
+
+    lastPivotPrice = None
+
+    for i in dfcopy.index:
+        currentMin=min(Rangev,default=0)
+        value=round(dfcopy["bidlo"][i],2)
+
+        Rangev=Rangev[1:time_window*2-1]
+        Rangev.append(value)
+
+        dateRangev=dateRangev[1:time_window*2-1]
+        date = dfcopy["date"][i]
+        dateRangev.append(i)
+
+        if currentMin==min(Rangev,default=0):
+            counter=counter+1
+        else:
+            counter=0
+        if counter==time_window:
+            flag_pivot = True
+            lastPivot=currentMin
+            dateloc=Rangev.index(lastPivot)
+            lastDate=dateRangev[dateloc]
+            pivots.append(lastPivot)
+            dates.append(lastDate)
+            ls_index_pivot.append(i)
+
+            lastPivotDate = dfcopy["date"][i]
+            lastPivotPrice = dfcopy["adjusted_prc"][i]
+            dfcopy["pivot_min_"+str(time_window)+"_indicator"][i]=1
+
+        if flag_pivot == False:
+            ls_days_since_last_pivot.append(0)
+            return_since_last_pivot.append(0)
+            ls_is_any_pivot.append(1)
+        else:
+            days_since = (pd.to_datetime(dfcopy["date"][i]) - pd.to_datetime(lastPivotDate)).days
+            ls_days_since_last_pivot.append(days_since)
+            if lastPivotPrice == 0 or lastPivotPrice == None or dfcopy["adjusted_prc"][i] == None:
+                return_since = 0
+            else:
+                return_since = (dfcopy["adjusted_prc"][i] - lastPivotPrice)/lastPivotPrice
+            return_since_last_pivot.append(return_since)
+            ls_is_any_pivot.append(0)
+
+    dic_pivot_returns = {"pivot_indictor":dfcopy["pivot_min_"+str(time_window)+"_indicator"],
+    "days_since_pivot":ls_days_since_last_pivot,
+    "return_since_pivot":return_since_last_pivot,
+    "ls_is_any_pivot":ls_is_any_pivot}
+    return dic_pivot_returns
+
+ls_time_windows = [2,3,5,10,15,20]
+six_mos = int(TRADING_DAYS/2)
+TRADING_DAYS = 253
+for permn in ls_permno:
+    df = dic_permno[permn]
+    for time_window in ls_time_windows:
+        #pivot points for max implementation
+        dic_pivot_returns = computePivotMax(df, time_window)
+        df["pivot_max_"+str(time_window)+"_indicator"] = dic_pivot_returns["pivot_indictor"]
+        df["pivot_max_"+str(time_window)+"_days_since_last"] = dic_pivot_returns["days_since_pivot"]
+        df["pivot_max_"+str(time_window)+"_returns_since_last"] = dic_pivot_returns["return_since_pivot"]
+        df["pivot_max_"+str(time_window)+"_any_pivot"] = dic_pivot_returns["ls_is_any_pivot"]
+        df["pivot_max_"+str(time_window)+"_indicator_rolling"+"_3mo"]= df["pivot_max_"+str(time_window)+"_indicator"].rolling(window=int(TRADING_DAYS/4)).sum()
+        df["pivot_max_"+str(time_window)+"_indicator_rolling"+"_6mo"]= df["pivot_max_"+str(time_window)+"_indicator"].rolling(window=int(TRADING_DAYS/2)).sum()
+        df["pivot_max_"+str(time_window)+"_indicator_rolling"+"_1yr"]= df["pivot_max_"+str(time_window)+"_indicator"].rolling(window=int(TRADING_DAYS), min_periods=six_mos).sum()
+        df["pivot_max_"+str(time_window)+"_indicator_rolling"+"_2yr"]= df["pivot_max_"+str(time_window)+"_indicator"].rolling(window=int(TRADING_DAYS*2), min_periods=six_mos).sum()
+
+for permn in ls_permno:
+    df = dic_permno[permn]
+    for time_window in ls_time_windows:
+        #pivot points for min implementation
+        dic_pivot_returns = computePivotMin(df, time_window)
+        df["pivot_min_"+str(time_window)+"_indicator"] = dic_pivot_returns["pivot_indictor"]
+        df["pivot_min_"+str(time_window)+"_days_since_last"] = dic_pivot_returns["days_since_pivot"]
+        df["pivot_min_"+str(time_window)+"_returns_since_last"] = dic_pivot_returns["return_since_pivot"]
+        df["pivot_min_"+str(time_window)+"_any_pivot"] = dic_pivot_returns["ls_is_any_pivot"]
+        df["pivot_min_"+str(time_window)+"_indicator_rolling"+"_3mo"]= df["pivot_min_"+str(time_window)+"_indicator"].rolling(window=int(TRADING_DAYS/4)).sum()
+        df["pivot_min_"+str(time_window)+"_indicator_rolling"+"_6mo"]= df["pivot_min_"+str(time_window)+"_indicator"].rolling(window=int(TRADING_DAYS/2)).sum()
+        df["pivot_min_"+str(time_window)+"_indicator_rolling"+"_1yr"]= df["pivot_min_"+str(time_window)+"_indicator"].rolling(window=int(TRADING_DAYS), min_periods=six_mos).sum()
+        df["pivot_min_"+str(time_window)+"_indicator_rolling"+"_2yr"]= df["pivot_min_"+str(time_window)+"_indicator"].rolling(window=int(TRADING_DAYS*2), min_periods=six_mos).sum()
+
+df_final = pd.DataFrame()
+for i in range(len(ls_permno)):
+    permn = ls_permno[i]
+    df_temp = dic_permno[permn]
+    df_final = df_final.append(df_temp,ignore_index= True)
+
+merged_df = df_final
 
 """
 Create target volatility.
@@ -186,13 +492,11 @@ def fix_nested_index(series, indeces):
 
     return series
 
-
 merged_df['log_ret'] = np.log(1 + merged_df['ret'])
 
 by_permno = merged_df.groupby('permno')
-six_mos = int(TRADING_DAYS / 2)
 target_volatility = by_permno['log_ret'].rolling(
-    window=six_mos).std() * np.sqrt(six_mos)
+window=six_mos).std() * np.sqrt(six_mos)
 target_volatility = fix_nested_index(target_volatility, ['target_vol'])
 merged_df['target_vol'] = target_volatility
 
@@ -201,11 +505,17 @@ vols.columns = ['target_vol', 'permno', 'date']
 
 merged_df = merged_df.merge(vols, how='left', left_on=[
                             'prediction_date', 'permno'], right_on=['date', 'permno'])
-merged_df = merged_df[['permno', 'date_x',
-                       'prediction_date', 'ret', 'vwretd', 'target_vol_y', 'log_ret']]
 
-merged_df.columns = ['permno', 'date', 'prediction_date',
-                     'ret', 'vwretd', 'target_vol', 'log_ret']
+# THIS IS AN ARTIFACT FROM BEFORE ADDING RSI + PIVOT POINTS
+# merged_df = merged_df[['permno', 'date_x',
+#                        'prediction_date', 'ret', 'vwretd', 'target_vol_y', 'log_ret']]
+#
+# merged_df.columns = ['permno', 'date', 'prediction_date',
+#                      'ret', 'vwretd', 'target_vol', 'log_ret']
+#
+
+merged_df = merged_df.rename(columns={'date_x': 'date', 'target_vol_y': 'target_vol'})
+merged_df = merged_df.drop(columns=['target_vol_x', 'date_y'], axis=1)
 
 """
     Gain Loss %: (Stock[-1] - Stock[0]) * 100 / (Stock[0])
@@ -226,10 +536,15 @@ merged_df = merged_df.merge(cum_ret, how='left', left_on=[
 
 merged_df['target'] = (merged_df['cum_ret_stock_y'] -
                        merged_df['cum_ret_stock_x']) / (merged_df['cum_ret_stock_x'])
-merged_df = merged_df[['permno', 'date_x', 'prediction_date',
-                       'ret', 'vwretd', 'cum_ret_stock_x', 'target', 'target_vol', 'log_ret', 'gain_loss']]
-merged_df.columns = ['permno', 'date', 'prediction_date',
-                     'ret', 'vwretd', 'cum_ret_stock', 'target', 'target_vol', 'log_ret', 'gain_loss']
+
+merged_df = merged_df.rename(columns={'date_x': 'date', 'cum_ret_stock_x': 'cum_ret_stock'})
+merged_df = merged_df.drop(columns=['cum_ret_stock_y', 'date_y'], axis=1)
+
+# THIS IS AN ARTIFACT FROM BEFORE ADDING RSI + PIVOT POINTS
+# merged_df = merged_df[['permno', 'date_x', 'prediction_date',
+#                        'ret', 'vwretd', 'cum_ret_stock_x', 'target', 'target_vol', 'log_ret', 'gain_loss']]
+# merged_df.columns = ['permno', 'date', 'prediction_date',
+#                      'ret', 'vwretd', 'cum_ret_stock', 'target', 'target_vol', 'log_ret', 'gain_loss']
 by_permno = merged_df.groupby('permno')
 
 
@@ -398,7 +713,11 @@ features_df = merged_df[numeric_features]
 # zscore.columns = global_cols
 # merged_df = merged_df.merge(zscore, how='left', left_index=True, right_index=True)
 
-# Local ZScore (Zscore by_permno)
+
+############ ISAAC CODE COMMENTED OUT #################################
+# # Local ZScore (Zscore by_permno)
+
+# TODO: Anything that are indicators shouldn't have a zscore.
 by_permno = merged_df[numeric_features.union(set(['permno']))].groupby('permno')[
     list(numeric_features)]
 col_mean = by_permno.rolling(window=TRADING_DAYS, min_periods=30).mean()
@@ -411,6 +730,27 @@ local_cols = [str + '_local_z' for str in zscore.columns]
 zscore.columns = local_cols
 merged_df = merged_df.merge(
     zscore, how='left', left_index=True, right_index=True)
+############################################################
+
+##########################################################
+# Global ZScore (Zscore by_date)- Aaron
+
+# TODO: Anything that are indicators shouldn't have a zscore.
+by_date = merged_df[numeric_features.union(set(['date', 'permno']))].groupby('date')[list(numeric_features) + ['permno']]
+import pdb; pdb.set_trace()
+col_mean = by_date.rolling(window=1, min_periods=1).mean()
+col_mean = fix_nested_index(col_mean, col_mean.columns.tolist())
+col_std = by_date.rolling(window=1, min_periods=1).std()
+col_std = fix_nested_index(col_std, col_std.columns.tolist())
+
+import pdb; pdb.set_trace()
+zscore = (features_df - col_mean) / (col_std)
+local_cols = [str + '_global_z' for str in zscore.columns]
+zscore.columns = local_cols
+merged_df = merged_df.merge(
+    zscore, how='left', left_index=True, right_index=True)
+import pdb; pdb.set_trace()
+########################################################################
 
 # print("Finished calculating local and global z-scores.")
 print("Finished calculating local z-scores.")
@@ -424,7 +764,7 @@ final_df = final_df.dropna()
 """
 
 # TODO: Make this a utils class. Improve this method.
-final_df.to_csv('features_v10.csv', index=False)
+final_df.to_csv('features_v11.csv', index=False)
 # job_config = bigquery.LoadJobConfig(
 #   source_format=bigquery.SourceFormat.CSV, skip_leading_rows=1,
 #   autodetect=True,
