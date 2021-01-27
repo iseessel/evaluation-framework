@@ -22,13 +22,6 @@ WITH
     std1.permno,
     ticker,
     ret,
-    CASE
-      # When prc is 0 it is not reported. Sometimes price is negative when its an estimate of the closing price.
-      WHEN prc = 0 THEN NULL
-    ELSE
-    ABS(prc/cfacpr)
-  END
-    AS adjusted_prc,
     COALESCE((
       SELECT
         MIN(date)
@@ -51,24 +44,15 @@ WITH
     std1.permno,
     date )
 SELECT
+  DISTINCT
   sp_daily_features.permno,
   sp_daily_features.date,
   sp_daily_features.ret,
-  sp_daily_features.adjusted_prc,
-  sp_daily_features.prediction_date,
-  (CASE
-      WHEN std.prc = 0 THEN NULL
-    ELSE
-    ABS(std.prc/std.cfacpr) END) AS target
+  sp_daily_features.prediction_date
 FROM
   sp_daily_features
-LEFT JOIN
-  `silicon-badge-274423.financial_datasets.sp_timeseries_daily` std
-ON
-  std.permno = sp_daily_features.permno
-  AND std.date = sp_daily_features.prediction_date
 WHERE
-    sp_daily_features.date >= '{ START_DATE }' AND sp_daily_features.permno
+    sp_daily_features.date >= '{ START_DATE }'
 """
 
 WINDOW_SIZE = 50
@@ -79,14 +63,32 @@ df = client.query(QUERY).to_dataframe()
 
 # Forward fill target prices for when stocks become delisted and there is no 6 month later target.
 df = df.sort_values(by=['permno', 'date']).reset_index()
-df['target'] = df.groupby('permno').target.ffill()
 
-import pdb; pdb.set_trace()
-df = df.dropna()
-
+"""
+    Create target (Returns) Here
+"""
 # Adjusted returns are null the first day they are reported.
 df.loc[df['ret'].isna(), 'ret'] = 0
 
+df = df.dropna()
+
+by_permno = df.groupby('permno')
+df['cum_ret_stock'] = df['ret'] + 1
+df['cum_ret_stock'] = by_permno.cum_ret_stock.cumprod()
+
+cum_ret = df[['permno', 'date', 'cum_ret_stock']]
+
+df = df.merge(cum_ret, how='left', left_on=[
+                            'prediction_date', 'permno'], right_on=['date', 'permno'])
+
+# We need targets for stocks that are delisted 6 months in advanced for testing.
+df['cum_ret_stock_y'] = df.groupby('permno').cum_ret_stock_y.ffill()
+
+df['target'] = (df['cum_ret_stock_y'] -
+                       df['cum_ret_stock_x']) / (df['cum_ret_stock_x'])
+
+df = df.rename(columns={'date_x': 'date', 'cum_ret_stock_x': 'cum_ret_stock'})
+df = df.drop(columns=['date_y', 'cum_ret_stock_y'])
 
 """
 Create target volatility.
@@ -99,7 +101,6 @@ def fix_nested_index(series, indeces):
 
     return series
 
-import pdb; pdb.set_trace()
 df['log_ret'] = np.log(1 + df['ret'])
 
 by_permno = df.groupby('permno')
@@ -109,6 +110,7 @@ target_volatility = by_permno['log_ret'].rolling(
 
 target_volatility = fix_nested_index(target_volatility, ['target_vol'])
 df['target_vol'] = target_volatility
+
 # https://stackoverflow.com/questions/40084931/taking-subarrays-from-numpy-array-with-given-stride-stepsize
 
 def strided_app(a, L=WINDOW_SIZE, S=1):
@@ -118,9 +120,9 @@ def strided_app(a, L=WINDOW_SIZE, S=1):
 
 
 def rolling_returns(a):
+    # Set first day of window's returns to one, since we are calculating rolling returns from "first" day of window.
     def f(x): return (x - a[0]) / (a[0])
     return f(a)
-
 
 dates = np.empty((0), 'datetime64')
 prediction_dates = np.empty((0), 'datetime64')
@@ -131,10 +133,12 @@ targets = np.empty((0), 'float32')
 i = 0
 for _, row in df.groupby('permno'):
     row = row.sort_values(by='date')
-    # Sometimes a permno will not have a long enough price series to be included.
-    if len(row.adjusted_prc.to_numpy()) < 50:
+
+    # When a stock has just been listed, the permno will not have a long enough price series to be included.
+    if len(row.cum_ret_stock.to_numpy()) < 50:
         continue
-    prcs = strided_app(row.adjusted_prc.to_numpy())
+
+    cum_rets = strided_app(row.cum_ret_stock.to_numpy())
 
     # Dates, permno, and target dates are offset by WINDOW_SIZE.
     dates = np.append(dates, row.date.to_numpy()[(WINDOW_SIZE - 1):])
@@ -145,9 +149,15 @@ for _, row in df.groupby('permno'):
     t = row.target.to_numpy()[(WINDOW_SIZE - 1):]
     rets = []
     targs = []
-    for j, prc in enumerate(prcs):
-        rets.append(rolling_returns(prc))
-        targs.append(((t[j] - prc[0]) / prc[0]))
+    for j, cum_rets in enumerate(cum_rets):
+        # Set first day to zero returns, as it is our starting point.
+        window_returns = rolling_returns(cum_rets)
+        rets.append(window_returns)
+
+        # Target is from T - 50, NOT T. This is in order to capture the momentum.
+        target = (1 + window_returns[-1]) * (1 + t[j])
+
+        targs.append(target)
 
     targets = np.append(targets, np.array(targs),)
     rolling_window = np.append(rolling_window, np.array(rets), axis=0)
@@ -174,14 +184,13 @@ features_df = features_df[['date_x', 'permno', 'adjusted_rets', 'target', 'predi
 features_df = features_df.dropna()
 features_df = features_df.rename(columns={'date_x': 'date'})
 
-import pdb; pdb.set_trace()
 features_df.date = features_df.date.astype('string')
 features_df.prediction_date = features_df.prediction_date.astype('string')
 
 """
     TODO: This was stalling indefinitely. Have uploaded to GCS manually.
 """
-
+import pdb; pdb.set_trace()
 with open('./features_v9.json', 'w') as f:
     f.write(features_df.to_json(orient='records', lines=True))
 
