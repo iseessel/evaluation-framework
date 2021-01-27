@@ -139,7 +139,22 @@ class EvaluationFramework:
         y_train_vol = train_df.get('target_vol', None)
         y_test_vol = test_df.get('target_vol', None)
 
+
+        # Tests that we are considering the correct stocks for test, as these will be our predictions.
+        stocks_in_sp = set([ int(permno) for permno in sp_historical_df.PERMNO.tolist()])
+        stocks_in_train = set(x_test.permno.unique())
+
+        print(f"Stocks in sp, not in consideration: { stocks_in_sp - stocks_in_train}")
+        print(f"Stocks in consideration, not in sp: { stocks_in_train - stocks_in_sp}")
+        for permno in (stocks_in_sp - stocks_in_train):
+            permno_df = df[df.permno == permno]
+
+            if not permno_df.empty:
+                min_date = permno_df.date.min()
+                print(f"Min date for stock is: { min_date }. {(min_date - train_end).days} before train_end")
+
         return (x_train, y_train, x_test, y_test, y_train_vol, y_test_vol)
+
 
     def __get_sp_historical(self):
         QUERY = "SELECT * FROM `silicon-badge-274423.financial_datasets.sp_constituents_historical`"
@@ -195,7 +210,10 @@ class EvaluationFramework:
 
         return self.__load_stock_results(stock_results)
 
-    # TODO: This needs to be refactored. This will *NOT* work.
+    """
+        This method is deprecated, and will need to be refactored if used again.
+        We are no longer using single stock models.
+    """
     def __eval_single_stock(self):
         timeframes = self.__get_stock_timeframes()
 
@@ -224,7 +242,6 @@ class EvaluationFramework:
 
         return self.__load_stock_results(stock_results)
 
-    # TODO: Decide whether or not to Retrieve this per stock (May run into memory constraints.)
     def __get_stock_data(self):
         QUERY = f"""
         SELECT
@@ -281,7 +298,6 @@ class EvaluationFramework:
 
         return result
 
-    # TODO: Improve timeframes to months (instead of days).
     def __get_timeframes(self):
         dates = []
 

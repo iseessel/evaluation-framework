@@ -23,7 +23,7 @@ RUN pip install sklearn
 
 COPY . .
 
-CMD [ "python", "lstm_model_price_features_vol_v8.py" ]
+CMD [ "python", "features_v9.py" ]
 
 # lstm_model_price_features_vol_v5
 # FROM tensorflow/tensorflow:latest-gpu

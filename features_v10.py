@@ -67,7 +67,7 @@ args = {
     'increments': 6,
     'hypers': {},
     'evaluation_timeframe': [180],
-    'evaluation_table_id': f'silicon-badge-274423.stock_model_evaluation.lstm_model_relu_price_features_vol_v8_prod',
+    'evaluation_table_id': f'silicon-badge-274423.stock_model_evaluation.features_v10',
     'pooled': True,
     'glue': glue,
     'options': {

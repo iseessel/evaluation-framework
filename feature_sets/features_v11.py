@@ -743,13 +743,11 @@ col_mean = fix_nested_index(col_mean, col_mean.columns.tolist())
 col_std = by_date.rolling(window=1, min_periods=1).std()
 col_std = fix_nested_index(col_std, col_std.columns.tolist())
 
-import pdb; pdb.set_trace()
 zscore = (features_df - col_mean) / (col_std)
 local_cols = [str + '_global_z' for str in zscore.columns]
 zscore.columns = local_cols
 merged_df = merged_df.merge(
     zscore, how='left', left_index=True, right_index=True)
-import pdb; pdb.set_trace()
 ########################################################################
 
 # print("Finished calculating local and global z-scores.")

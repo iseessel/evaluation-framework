@@ -116,6 +116,7 @@ WHERE
 print("Fetching stock prices. May take a few minutes.")
 client = bigquery.Client(project='silicon-badge-274423')
 returns_df = client.query(QUERY).to_dataframe()
+
 returns_df = returns_df.sort_values(by=['permno', 'date']).reset_index()
 
 # Adjusted returns are null the first day they are reported.
@@ -198,7 +199,8 @@ cum_ret = merged_df[['permno', 'date', 'cum_ret_stock']]
 
 merged_df = merged_df.merge(cum_ret, how='left', left_on=[
                             'prediction_date', 'permno'], right_on=['date', 'permno'])
-# We need targets for stocks that are delisted 6 months in advanced.
+
+# We need targets for stocks that are delisted 6 months in advanced for testing. 
 merged_df['cum_ret_stock_y'] = merged_df.groupby('permno').cum_ret_stock_y.ffill()
 
 merged_df['target'] = (merged_df['cum_ret_stock_y'] -
