@@ -71,7 +71,7 @@ args = {
     'pooled': True,
     'glue': glue,
     'options': {
-        'returns_from_t': False
+        'returns_from_t': True
     }
 }
 

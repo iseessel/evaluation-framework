@@ -141,17 +141,17 @@ class EvaluationFramework:
 
 
         # Tests that we are considering the correct stocks for test, as these will be our predictions.
-        stocks_in_sp = set([ int(permno) for permno in sp_historical_df.PERMNO.tolist()])
-        stocks_in_train = set(x_test.permno.unique())
-
-        print(f"Stocks in sp, not in consideration: { stocks_in_sp - stocks_in_train}")
-        print(f"Stocks in consideration, not in sp: { stocks_in_train - stocks_in_sp}")
-        for permno in (stocks_in_sp - stocks_in_train):
-            permno_df = df[df.permno == permno]
-
-            if not permno_df.empty:
-                min_date = permno_df.date.min()
-                print(f"Min date for stock is: { min_date }. {(min_date - train_end).days} before train_end")
+        # stocks_in_sp = set([ int(permno) for permno in sp_historical_df.PERMNO.tolist()])
+        # stocks_in_train = set(x_test.permno.unique())
+        #
+        # print(f"Stocks in sp, not in consideration: { stocks_in_sp - stocks_in_train }")
+        # print(f"Stocks in consideration, not in sp: { stocks_in_train - stocks_in_sp}")
+        # for permno in (stocks_in_sp - stocks_in_train):
+        #     permno_df = df[df.permno == permno]
+        #
+        #     if not permno_df.empty:
+        #         min_date = permno_df.date.min()
+        #         print(f"Min date for stock is: { min_date }. {(min_date - train_end).days} before train_end")
 
         return (x_train, y_train, x_test, y_test, y_train_vol, y_test_vol)
 
@@ -196,7 +196,6 @@ class EvaluationFramework:
                 f"Y train vol shape: {y_train_vol.shape}\n"
                 f"Y test vol shape: {y_test_vol.shape}\n"
             )
-
             trainer = self.__create_stock_model_trainer(
                 x_train, y_train, x_test, y_test, permno_dates, time, y_train_vol, y_test_vol)
 
