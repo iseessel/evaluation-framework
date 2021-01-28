@@ -183,138 +183,6 @@ RAW_FEATURES = [
  'pivot_cutoff_indicator_20_rolling_2yr',
 ]
 
-# FINAL_FEATURES = [
-#     'permno', 'date', 'prediction_date',
-#     # 'average_daily_return_global_z', 'beta_global_z',
-#     # 'beta_bear_global_z', 'beta_bull_global_z', 'gain_loss_global_z',
-#     # 'kurtosis_global_z', 'market_correlation_global_z', 'returns_bear_global_z',
-#     # 'returns_bull_global_z', 'volatility_global_z',
-#     'average_daily_return_local_z', 'beta_local_z', 'beta_bear_local_z',
-#     'beta_bull_local_z', 'gain_loss_local_z', 'kurtosis_local_z',
-#     'market_correlation_local_z', 'returns_bear_local_z', 'returns_bull_local_z',
-#     'volatility_local_z','RSI_3', 'RSI_7', 'RSI_14', 'RSI_28', 'RSI_84', 'RSI_168',
-#      'pivot_max_2_indicator',
-#  'pivot_max_2_days_since_last',
-#  'pivot_max_2_returns_since_last',
-#  'pivot_max_2_any_pivot_indicator',
-#  'pivot_max_2_rolling_3mo',
-#  'pivot_max_2_rolling_6mo',
-#  'pivot_max_2_rolling_1yr',
-#  'pivot_max_2_rolling_2yr',
-#  'pivot_max_3_indicator',
-#  'pivot_max_3_days_since_last',
-#  'pivot_max_3_returns_since_last',
-#  'pivot_max_3_any_pivot_indicator',
-#  'pivot_max_3_rolling_3mo',
-#  'pivot_max_3_rolling_6mo',
-#  'pivot_max_3_rolling_1yr',
-#  'pivot_max_3_rolling_2yr',
-#  'pivot_max_5_indicator',
-#  'pivot_max_5_days_since_last',
-#  'pivot_max_5_returns_since_last',
-#  'pivot_max_5_any_pivot_indicator',
-#  'pivot_max_5_rolling_3mo',
-#  'pivot_max_5_rolling_6mo',
-#  'pivot_max_5_rolling_1yr',
-#  'pivot_max_5_rolling_2yr',
-#  'pivot_max_10_indicator',
-#  'pivot_max_10_days_since_last',
-#  'pivot_max_10_returns_since_last',
-#  'pivot_max_10_any_pivot_indicator',
-#  'pivot_max_10_rolling_3mo',
-#  'pivot_max_10_rolling_6mo',
-#  'pivot_max_10_rolling_1yr',
-#  'pivot_max_10_rolling_2yr',
-#  'pivot_max_15_indicator',
-#  'pivot_max_15_days_since_last',
-#  'pivot_max_15_returns_since_last',
-#  'pivot_max_15_any_pivot_indicator',
-#  'pivot_max_15_rolling_3mo',
-#  'pivot_max_15_rolling_6mo',
-#  'pivot_max_15_rolling_1yr',
-#  'pivot_max_15_rolling_2yr',
-#  'pivot_max_20_indicator',
-#  'pivot_max_20_days_since_last',
-#  'pivot_max_20_returns_since_last',
-#  'pivot_max_20_any_pivot_indicator',
-#  'pivot_max_20_rolling_3mo',
-#  'pivot_max_20_rolling_6mo',
-#  'pivot_max_20_rolling_1yr',
-#  'pivot_max_20_rolling_2yr',
-#  'pivot_min_2_indicator',
-#  'pivot_min_2_days_since_last',
-#  'pivot_min_2_returns_since_last',
-#  'pivot_min_2_any_pivot_indicator',
-#  'pivot_min_2_rolling_3mo',
-#  'pivot_min_2_rolling_6mo',
-#  'pivot_min_2_rolling_1yr',
-#  'pivot_min_2_rolling_2yr',
-#  'pivot_min_3_indicator',
-#  'pivot_min_3_days_since_last',
-#  'pivot_min_3_returns_since_last',
-#  'pivot_min_3_any_pivot_indicator',
-#  'pivot_min_3_rolling_3mo',
-#  'pivot_min_3_rolling_6mo',
-#  'pivot_min_3_rolling_1yr',
-#  'pivot_min_3_rolling_2yr',
-#  'pivot_min_5_indicator',
-#  'pivot_min_5_days_since_last',
-#  'pivot_min_5_returns_since_last',
-#  'pivot_min_5_any_pivot_indicator',
-#  'pivot_min_5_rolling_3mo',
-#  'pivot_min_5_rolling_6mo',
-#  'pivot_min_5_rolling_1yr',
-#  'pivot_min_5_rolling_2yr',
-#  'pivot_min_10_indicator',
-#  'pivot_min_10_days_since_last',
-#  'pivot_min_10_returns_since_last',
-#  'pivot_min_10_any_pivot_indicator',
-#  'pivot_min_10_rolling_3mo',
-#  'pivot_min_10_rolling_6mo',
-#  'pivot_min_10_rolling_1yr',
-#  'pivot_min_10_rolling_2yr',
-#  'pivot_min_15_indicator',
-#  'pivot_min_15_days_since_last',
-#  'pivot_min_15_returns_since_last',
-#  'pivot_min_15_any_pivot_indicator',
-#  'pivot_min_15_rolling_3mo',
-#  'pivot_min_15_rolling_6mo',
-#  'pivot_min_15_rolling_1yr',
-#  'pivot_min_15_rolling_2yr',
-#  'pivot_min_20_indicator',
-#  'pivot_min_20_days_since_last',
-#  'pivot_min_20_returns_since_last',
-#  'pivot_min_20_any_pivot_indicator',
-#  'pivot_min_20_rolling_3mo',
-#  'pivot_min_20_rolling_6mo',
-#  'pivot_min_20_rolling_1yr',
-#  'pivot_min_20_rolling_2yr',
-#  'pivot_cutoff_indicator_2_rolling_3mo',
-#  'pivot_cutoff_indicator_2_rolling_6mo',
-#  'pivot_cutoff_indicator_2_rolling_1yr',
-#  'pivot_cutoff_indicator_2_rolling_2yr',
-#  'pivot_cutoff_indicator_3_rolling_3mo',
-#  'pivot_cutoff_indicator_3_rolling_6mo',
-#  'pivot_cutoff_indicator_3_rolling_1yr',
-#  'pivot_cutoff_indicator_3_rolling_2yr',
-#  'pivot_cutoff_indicator_5_rolling_3mo',
-#  'pivot_cutoff_indicator_5_rolling_6mo',
-#  'pivot_cutoff_indicator_5_rolling_1yr',
-#  'pivot_cutoff_indicator_5_rolling_2yr',
-#  'pivot_cutoff_indicator_10_rolling_3mo',
-#  'pivot_cutoff_indicator_10_rolling_6mo',
-#  'pivot_cutoff_indicator_10_rolling_1yr',
-#  'pivot_cutoff_indicator_10_rolling_2yr',
-#  'pivot_cutoff_indicator_15_rolling_3mo',
-#  'pivot_cutoff_indicator_15_rolling_6mo',
-#  'pivot_cutoff_indicator_15_rolling_1yr',
-#  'pivot_cutoff_indicator_15_rolling_2yr',
-#  'pivot_cutoff_indicator_20_rolling_3mo',
-#  'pivot_cutoff_indicator_20_rolling_6mo',
-#  'pivot_cutoff_indicator_20_rolling_1yr',
-#  'pivot_cutoff_indicator_20_rolling_2yr',
-# ]
-
 FINAL_FEATURES = [
 #     'index_x',
  'permno',
@@ -654,6 +522,11 @@ Fetch returns series from Bigquery.
     3. Remove any rows where prc is null (NB: Returns are always null the first day a stock goes public).
 """
 
+"""
+@TODO: Change QUERY to get data for all the permnos instead of just two permnos, 
+change line 580 delete AND sp_daily_features.permno IN ('14593','13407') 
+"""
+
 QUERY = f"""
 WITH
   sp_daily_features AS (
@@ -755,9 +628,7 @@ merged_df = returns_df.merge(sp_df, on='date', how='left')
 # Step 2. Use rolling function to create pivot points for each time series day.
 # Create a dictionary of key- permnos and value - dataframes of that permno
 
-ls_permno = ['14593','13407']
-# ls_permno = ['14593','13407','13856','22592','84788','87267','14541','64186','76076']
-# ls_permno = list(set(merged_df['permno']))
+ls_permno = list(set(merged_df['permno']))
 merged_df = merged_df[merged_df['permno'].isin(ls_permno)]
 
 dic_permno = {}
@@ -1279,10 +1150,6 @@ features_df = merged_df[filtered_indicator]
 ############ ISAAC CODE COMMENTED OUT #################################
 # # Local ZScore (Zscore by_permno)
 
-# TODO: Anything that are indicators shouldn't have a zscore.
-
-
-
 # by_permno = merged_df[numeric_features.union(set(['permno']))].groupby('permno')[
 #     list(numeric_features)]
 by_permno = merged_df[numeric_features.union(set(['permno']))].groupby('permno')[
@@ -1299,10 +1166,6 @@ merged_df = merged_df.merge(
     zscore, how='left', left_index=True, right_index=True)
 ############################################################
 
-
-# In[9]:
-
-
 ### Calculating Global Z-Scores
 for col in filtered_indicator:
     by_date = merged_df.groupby(['date'])
@@ -1311,16 +1174,8 @@ for col in filtered_indicator:
     merged_df[col+"_global_z"] = (merged_df[col] - col_mean)/col_std
     merged_df[col+"_global_z"] = merged_df[col+"_global_z"].fillna(0)
 
-
-# In[10]:
-
-
-# SAving File with ALl the features and transformed features to lookup for trends
+# Saving File with ALl the features and transformed features to lookup for trends
 merged_df.to_csv("Final_Features.csv")
-
-
-# In[11]:
-
 
 # Creating a dataframe with only the relevant features for training
 
@@ -1334,9 +1189,6 @@ final_df = final_df.dropna()
 
 # TODO: Make this a utils class. Improve this method.
 final_df.to_csv('features_v11.csv', index=False)
-
-
-# In[ ]:
 
 
 # ##########################################################
