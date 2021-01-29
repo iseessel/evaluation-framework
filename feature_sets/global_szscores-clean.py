@@ -577,7 +577,8 @@ SELECT
 FROM
   sp_daily_features
 WHERE
-    sp_daily_features.date >= '{ START_DATE }' AND sp_daily_features.permno IN ('14593','13407')
+    # sp_daily_features.date >= '{ START_DATE }' AND sp_daily_features.permno IN ('14593','13407')
+    sp_daily_features.date >= '{ START_DATE }'
 """
 
 # Fetch Stock Prices
@@ -617,6 +618,9 @@ sp_df.loc[0, 'vwretd'] = 0
 merged_df = returns_df.merge(sp_df, on='date', how='left')
 
 
+
+
+
 # Saving the CSV file to Unit Test the code for Pivot Points
 # merged_df.to_csv("merged_df_new.csv")
 """
@@ -634,6 +638,10 @@ merged_df = merged_df[merged_df['permno'].isin(ls_permno)]
 dic_permno = {}
 for permn in ls_permno:
     dic_permno[permn] = merged_df[merged_df['permno'] == permn]
+
+print("####################################################")
+print("CALCULATING RSI")
+print("####################################################")
 
 def computeRSI (data, time_window):
     diff = data.diff(1).dropna()        # diff in one field(one day)
@@ -665,6 +673,14 @@ for permn in ls_permno:
     df = dic_permno[permn]
     for window_size in ls_windowsize:
         df['RSI'+"_"+str(window_size)] = computeRSI(df['adjusted_prc'], window_size)
+
+print("####################################################")
+print("RSI CALCULATED")
+print("####################################################")
+
+print("####################################################")
+print("CREATING PIVOT POINTS")
+print("####################################################")
 
 def computePivotMax (df, time_window):
     dfcopy=df.copy()
@@ -843,6 +859,9 @@ for permn in ls_permno:
         df["pivot_max_"+str(time_window)+"_rolling"+"_2yr"]= df["pivot_max_"+str(time_window)+"_indicator"].rolling(window=int(TRADING_DAYS*2), min_periods = int(TRADING_DAYS/2) - 3).sum()
 #         df["pivot_cutoff_indicator"]
 
+print("####################################################")
+print("PIVOT POINTS MAX CREATED")
+print("####################################################")
 
 ls_time_windows = [2,3,5,10,15,20]
 TRADING_DAYS = 253
@@ -868,6 +887,10 @@ for permn in ls_permno:
         df["pivot_min_"+str(time_window)+"_rolling"+"_1yr"]= df["pivot_min_"+str(time_window)+"_indicator"].rolling(window=int(TRADING_DAYS), min_periods = int(TRADING_DAYS/2) - 3).sum()
         df["pivot_min_"+str(time_window)+"_rolling"+"_2yr"]= df["pivot_min_"+str(time_window)+"_indicator"].rolling(window=int(TRADING_DAYS*2), min_periods = int(TRADING_DAYS/2) - 3).sum()
 
+print("####################################################")
+print("PIVOT POINTS MIN CREATED")
+print("####################################################")
+
 ls_time_windows = [2,3,5,10,15,20]
 TRADING_DAYS = 253
 for permn in ls_permno:
@@ -892,13 +915,31 @@ for permn in ls_permno:
         if length_df-int(TRADING_DAYS*2) + 1 >= 0:
             df["pivot_cutoff_indicator_"+str(time_window)+"_rolling"+"_2yr"] = [1]*(int(TRADING_DAYS*2)-1) + [0]*(length_df-int(TRADING_DAYS*2) + 1)
 
+print("####################################################")
+print("CUTOFF PIVOT INDICATOR CREATED")
+print("####################################################")
+print(" ")
+print("####################################################")
+print("APPENDING TO DATAFRAME")
+print("####################################################")
+
+count_pernmos = 0
 df_final = pd.DataFrame()
 for i in range(len(ls_permno)):
+    if count_pernmos % 10 == 0:
+        print(count_pernmos)
     permn = ls_permno[i]
     df_temp = dic_permno[permn]
     df_final = df_final.append(df_temp,ignore_index= True)
+    count_pernmos += 1
 
 merged_df = df_final
+
+print(" ")
+print("####################################################")
+print("APPENDING TO DATAFRAME COMPLETED")
+print("####################################################")
+
 
 """
 Create target volatility.
