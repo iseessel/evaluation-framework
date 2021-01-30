@@ -67,7 +67,68 @@ v1_dsets = [
     'silicon-badge-274423.portfolio.lstm_model_tanh_price_features_vol_v7_prod_5_bonds_True'
 ]
 
-for dset in v0_dsets:
+v2_dsets = [
+    'silicon-badge-274423.portfolio.features_v10_100_bonds_False',
+    'silicon-badge-274423.portfolio.features_v10_100_bonds_True',
+    'silicon-badge-274423.portfolio.features_v10_10_bonds_False',
+    'silicon-badge-274423.portfolio.features_v10_10_bonds_True',
+    'silicon-badge-274423.portfolio.features_v10_5_bonds_False',
+    'silicon-badge-274423.portfolio.features_v10_5_bonds_True'
+]
+
+"""
+    Create union tables for the stock returns and volatility predictions.
+"""
+
+client = bigquery.Client(project='silicon-badge-274423')
+
+v2_dsets_preds = ['silicon-badge-274423.stock_model_evaluation.features_v10']
+
+query = ""
+for i, dset in enumerate(v2_dsets_preds):
+    query = query + f"SELECT *, '{dset}' as features_dataset FROM `{dset}`"
+    if i != len(v2_dsets_preds) - 1:
+         query = query + "UNION ALL "
+
+table_id = 'silicon-badge-274423.results.stock_model_evaluation_v2'
+job_config = bigquery.QueryJobConfig(
+    allow_large_results=True, destination=table_id, write_disposition='WRITE_TRUNCATE'
+)
+
+# Start the query, passing in the extra configuration.
+query_job = client.query(query, job_config=job_config)  # Make an API request.
+query_job.result()  # Wait for the job to complete.
+
+print("Query results loaded to the table {}".format(table_id))
+
+print(query)
+
+"""
+    Create union tables for the portfolio choices.
+"""
+query = ""
+for i, dset in enumerate(v2_dsets):
+    query = query + f"SELECT *, '{dset}' as portfolio_dataset FROM `{dset}`"
+    if i != len(v2_dsets) - 1:
+         query = query + " UNION ALL "
+
+table_id = 'silicon-badge-274423.results.portfolio_v2'
+job_config = bigquery.QueryJobConfig(
+    allow_large_results=True, destination=table_id, write_disposition='WRITE_TRUNCATE'
+)
+
+# Start the query, passing in the extra configuration.
+query_job = client.query(query, job_config=job_config)  # Make an API request.
+query_job.result()  # Wait for the job to complete.
+
+print("Query results loaded to the table {}".format(table_id))
+
+print(query)
+
+"""
+    Create daily timeseries for all the results.
+"""
+for dset in v2_dsets:
     QUERY = f"""
         SELECT
             b.*, sdf.ret, sdf.date as daily_date
@@ -82,14 +143,12 @@ for dset in v0_dsets:
             (sdf.date > b.date and sdf.date <= b.prediction_date)
     """
 
-
 def weighted_average(group):
     weights = group['weight']
     cum_ret = group['ret']
     return np.average(cum_ret, weights=weights)
 
 
-client = bigquery.Client(project='silicon-badge-274423')
 stock_df = client.query(QUERY).to_dataframe()
 stock_df = stock_df.sort_values(by=['date', 'permno', 'daily_date'])
 min_date = '2009-01-01'
@@ -122,7 +181,7 @@ job_config = bigquery.LoadJobConfig(
 
 with open('temp.csv', "rb") as source_file:
     job = client.load_table_from_file(
-        source_file, 'silicon-badge-274423.results_analysis.daily_price_series_v0', job_config=job_config)
+        source_file, 'silicon-badge-274423.results_analysis.daily_price_series_v2', job_config=job_config)
 
 job.result()  # Waits for the job to complete.
 
