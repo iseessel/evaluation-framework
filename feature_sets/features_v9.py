@@ -153,9 +153,9 @@ for _, row in df.groupby('permno'):
         # Set first day to zero returns, as it is our starting point.
         window_returns = rolling_returns(cum_rets)
         rets.append(window_returns)
-
+        import pdb; pdb.set_trace()
         # Target is from T - 50, NOT T. This is in order to capture the momentum.
-        target = (1 + window_returns[-1]) * (1 + t[j])
+        target = ((1 + window_returns[-1]) * (1 + t[j])) - 1
 
         targs.append(target)
 
