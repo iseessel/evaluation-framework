@@ -5,6 +5,9 @@ from dateutil.relativedelta import relativedelta
 from stock_model_trainer import StockModelTrainer
 from google.cloud import bigquery
 import os
+import tensorflow as tf
+print("Num GPUs Available: ", len(tf.config.experimental.list_physical_devices('GPU')))
+
 
 
 class EvaluationFramework:
