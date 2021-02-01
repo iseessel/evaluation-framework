@@ -120,7 +120,6 @@ def strided_app(a, L=WINDOW_SIZE, S=1):
 
 
 def rolling_returns(a):
-    # Set first day of window's returns to one, since we are calculating rolling returns from "first" day of window.
     def f(x): return (x - a[0]) / (a[0])
     return f(a)
 
@@ -153,7 +152,7 @@ for _, row in df.groupby('permno'):
         # Set first day to zero returns, as it is our starting point.
         window_returns = rolling_returns(cum_rets)
         rets.append(window_returns)
-        import pdb; pdb.set_trace()
+
         # Target is from T - 50, NOT T. This is in order to capture the momentum.
         target = ((1 + window_returns[-1]) * (1 + t[j])) - 1
 
@@ -190,7 +189,7 @@ features_df.prediction_date = features_df.prediction_date.astype('string')
 """
     TODO: This was stalling indefinitely. Have uploaded to GCS manually.
 """
-import pdb; pdb.set_trace()
+
 with open('./features_v9.json', 'w') as f:
     f.write(features_df.to_json(orient='records', lines=True))
 
