@@ -10,7 +10,7 @@ import pdb
 from google.cloud import bigquery
 import numpy as np
 import pandas as pd
-from datetime import datetime
+import datetime
 import os
 v0_dsets = [
     "silicon-badge-274423.portfolio.boosted_tree_features_vol_v4_light_prod",
@@ -76,11 +76,12 @@ v2_dsets = [
     'silicon-badge-274423.portfolio.features_v10_5_bonds_True'
 ]
 
+client = bigquery.Client(project='silicon-badge-274423')
+
+
 """
     Create union tables for the stock returns and volatility predictions.
 """
-
-client = bigquery.Client(project='silicon-badge-274423')
 
 v2_dsets_preds = ['silicon-badge-274423.stock_model_evaluation.features_v10']
 
@@ -103,9 +104,9 @@ print("Query results loaded to the table {}".format(table_id))
 
 print(query)
 
-"""
-    Create union tables for the portfolio choices.
-"""
+# """
+#     Create union tables for the portfolio choices.
+# """
 query = ""
 for i, dset in enumerate(v2_dsets):
     query = query + f"SELECT *, '{dset}' as portfolio_dataset FROM `{dset}`"
@@ -128,50 +129,78 @@ print(query)
 """
     Create daily timeseries for all the results.
 """
+
+#TODO: Very small amount of periods have weights summing a bit above 1, probably
+# due to rounding errors. 
+
+final_df = pd.DataFrame()
 for dset in v2_dsets:
+    print(f"Calculating daily returns for: { dset }")
     QUERY = f"""
+        WITH
+            portfolio AS (
+                SELECT
+                  *,
+                  (
+                  SELECT
+                    COALESCE(MIN(date), '2019-12-31')
+                  FROM
+                      `{dset}` b2
+                  WHERE
+                    b2.date > b.date AND b2.permno = 'ALL') AS trading_date
+                FROM
+                  `{dset}` b
+                ORDER BY
+                  date
+            )
+
         SELECT
-            b.*, sdf.ret, sdf.date as daily_date
+            portfolio.*, sdf.ret, sdf.date as daily_date
         FROM
-          `{dset}` b
+            portfolio
         LEFT JOIN
           `silicon-badge-274423.financial_datasets.sp_timeseries_daily` sdf
         ON
-        # Need to get a row for every day bond reports.
-          b.permno = sdf.permno OR (b.permno = 'bond' AND sdf.permno = '14593')
+          # Need to get a row for every day bond reports.
+          portfolio.permno = sdf.permno OR (portfolio.permno = 'bond' AND sdf.permno = '20482')
         WHERE
-            (sdf.date > b.date and sdf.date <= b.prediction_date)
+            (sdf.date >= portfolio.date AND sdf.date < portfolio.trading_date)
     """
 
-def weighted_average(group):
-    weights = group['weight']
-    cum_ret = group['ret']
-    return np.average(cum_ret, weights=weights)
+    def weighted_average(group):
+        weights = group['weight']
+        cum_ret = group['ret']
+        return np.average(cum_ret, weights=weights)
 
+    stock_df = client.query(QUERY).to_dataframe()
+    stock_df = stock_df.sort_values(by=['date', 'permno', 'daily_date'])
 
-stock_df = client.query(QUERY).to_dataframe()
-stock_df = stock_df.sort_values(by=['date', 'permno', 'daily_date'])
-min_date = '2009-01-01'
+    # Get bond discount rate
+    bonds = stock_df[stock_df.permno == 'bond']
+    grouped = bonds.groupby(['date'])
+    num_rows = grouped.size()
+    six_mo_ret = grouped.actual_ret.max()
+    rates = ((1 + six_mo_ret)**(1 / num_rows)) - 1
 
-# Get bond discount rate
-bonds = stock_df[stock_df.permno == 'bond']
-grouped = bonds.groupby(['date'])
-num_rows = grouped.size()
-rates = ((1 + grouped.actual_ret.min())**(1 / num_rows)) - 1
+    # TODO: Can improve this
+    for date, rate in rates.items():
+        stock_df.loc[((stock_df.date) == date) & (
+            stock_df.permno == 'bond'), 'ret'] = rate
 
-# TODO: Can improve this
-for date, rate in rates.items():
-    stock_df.loc[((stock_df.date) == date) & (
-        stock_df.permno == 'bond'), 'ret'] = rate
+    # When stocks are delisted, they will have no timeseries, or (very rarely) returns aren't listed
+    # We will count these returns as zero.
+    stock_df['ret'] = stock_df['ret'].fillna(0)
+    stock_df = stock_df.drop_duplicates()
 
-weighted_avg = stock_df.groupby(
-    ['daily_date']).apply(func=weighted_average)
-weighted_avg = 1 + weighted_avg
-df = weighted_avg.cumprod()
-df = pd.DataFrame({'date': df.index, 'cumulative_returns': df.values})
-df['dataset'] = dset
+    weighted_avg = stock_df.groupby(['daily_date']).apply(func=weighted_average)
+    weighted_avg = 1 + weighted_avg
+    df = weighted_avg.cumprod()
+    df = pd.DataFrame({'date': df.index, 'cumulative_returns': df.values})
+    df['dataset'] = dset
 
-df.to_csv('temp.csv', index=False)
+    final_df = final_df.append(df)
+
+final_df.to_csv('temp.csv', index=False)
 
 job_config = bigquery.LoadJobConfig(
     source_format=bigquery.SourceFormat.CSV, skip_leading_rows=1,
