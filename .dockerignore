@@ -1,3 +1,6 @@
 .git
 __pycache__
 models/__pycache__
+*.csv
+*.json
+!service-account.json

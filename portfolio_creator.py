@@ -20,7 +20,6 @@ class PortfolioCreator:
         self.options = kwargs['options']
 
     def pick_stocks(self):
-        print(f"Predicting {self.dataset} {self.options}")
         predictions = self.__get_predictions()
         all_permnos = predictions.permno.astype('string').unique().to_numpy()
         daily_returns = self.__get_target_returns(
@@ -32,16 +31,23 @@ class PortfolioCreator:
 
         # Feed in predictions to the stock picker for each prediction date.
         for date, group in predictions.groupby('date'):
+
             # Small bug: Sometimes a stock delists slightly before prediction date. Skip these dates, as they will have a small number of stocks in consideration.
             if len(group) <= 10:
-                print(f"Skipping date: { date }, as there are { len(group) } stocks.")
+                print("\n####################################################")
+                print(f"Skipping date: { date }, as there are { len(group) } stocks")
+                print("####################################################\n")
                 continue
 
             # SMALL BUG WHERE OCASSIONALLY TWO PREDICTIONS FOR A PERMNO
             group = group.drop_duplicates(subset=['permno'], keep='last')
 
+
+            print("\n####################################################")
             print(f"Starting stock picking for: { date.strftime('%Y-%m-%d') }")
-            print(f"Considering { len(group) } stocks.")
+            print(f"Considering { len(group) } stocks")
+            print("####################################################\n")
+
             bond_return = bonds_df[bonds_df.date == date]
             prediction_date = group.prediction_date.min()
             bond_return = bond_return.ret.iloc[0]
@@ -54,6 +60,7 @@ class PortfolioCreator:
             correlation_matrix = self.__create_correlation_matrix(
                 daily_returns, date, candidate_returns.permno.tolist())
             permnos = group.permno.astype('string').unique().to_numpy()
+
             kwargs = {
                 'predictions': candidate_returns,
                 'client': self.client,
@@ -82,6 +89,8 @@ class PortfolioCreator:
 
                     df = daily_returns[daily_returns.permno == permno]
 
+                    # TODO: This logic doesn't perfectly match the daily return calculations, as prediction dates may differ
+                    # from trading dates by a day or two. Is "roughly" accurate.
                     actual_ret = predictions[(predictions.permno == permno) & (predictions.date == date)].iloc[0]['return_target']
                     cum_ret = cum_ret + (actual_ret * weight)
 
@@ -91,7 +100,8 @@ class PortfolioCreator:
                     weight_results.append(data)
 
             weight_results.append([date.strftime(
-                '%Y-%m-%d'), prediction_date, 'ALL', 1, cum_ret, self.dataset, self.num_candidate_stocks, self.stock_picker.__class__.__name__])
+                '%Y-%m-%d'), prediction_date, 'ALL', 1, cum_ret, self.dataset, self.num_candidate_stocks, str(self.stock_picker)])
+
         self.__upload_weights_to_bigquery(weight_results)
 
     def __upload_weights_to_bigquery(self, weight_results):
@@ -234,44 +244,57 @@ class PortfolioCreator:
 
         return predictions
 
-
-"""
-    todo use
-"""
-
-DATASETS = [
-    'features_v10'
-]
-
-weight_constraints = [
-    (0, 1),
-    (0, 0.1),
-    (0, 0.05)
-]
-
-constrain_bonds = [True, False]
-dset = []
-
-for dataset in DATASETS:
-    print(f"Weight Constraints: { weight_constraints}. Constrain bonds: { constrain_bonds }")
-    for constraint in weight_constraints:
-        for bool in constrain_bonds:
-            target_table = f'silicon-badge-274423.portfolio.{dataset}_{str(int(constraint[1] * 100))}_bonds_{str(bool)}'
-            dset.append(target_table)
-            print(f"DATASET: { dataset }")
-            print(f"Target Table { target_table }")
-
-            kwargs = {
-                'stock_picker': NonLinearOptimization,
-                'dataset': f'silicon-badge-274423.stock_model_evaluation.{dataset}',
-                'client': bigquery.Client(project='silicon-badge-274423'),
-                'num_candidate_stocks': 40,
-                'target_table_id': target_table,
-                'options': {
-                    'constraint': constraint,
-                    'constrain_bonds': bool
-                }
-            }
-
-            x = PortfolioCreator(**kwargs)
-            x.pick_stocks()
+# DATASETS = [
+#     'features_v9'
+# ]
+#
+# # [stock constraint, bond weight constraint]
+# weight_constraints = [
+#     [(0, 1), (0,1)],
+#     [(0, 1), (0,0)],
+#     # For example this constrains stocks to 10% of the portfolio and leaves bonds unconstrained.
+#     [(0, 0.1), (0, 1)],
+#     [(0, 0.1), (0, 0.1)],
+#     [(0, 0.1), (0, 0)],
+#     [(0, 0.05), (0, 1)],
+#     [(0, 0.05), (0, 0.05)],
+#     [(0, 0.05), (0, 0)]
+# ]
+#
+# # weight_constraints = [
+# #     (0, 1),
+# #     (0, 0.1),
+# #     (0, 0.05)
+# # ]
+#
+# constrain_bonds = [True, False]
+# dset = []
+#
+# for dataset in DATASETS:
+#     for constraint in weight_constraints:
+#         stock_constraint, bond_constraint = constraint
+#         dset_name = f"{dataset}_stocks_{str(int(stock_constraint[1] * 100))}_bonds_{str(int(bond_constraint[1] * 100))}"
+#         target_table = f'silicon-badge-274423.portfolio.{ dset_name }'
+#         predictions_dataset = f'silicon-badge-274423.stock_model_evaluation.{dataset}'
+#
+#         dset.append(target_table)
+#
+#         print("####################################################")
+#         print(f"Stock Constraints: { constraint[0] }. Bond Constraints: { constraint[1] }")
+#         print(f"Predictions Dataset: { predictions_dataset }")
+#         print(f"Target Table: { target_table}")
+#         print("####################################################\n")
+#
+#         kwargs = {
+#             'stock_picker': NonLinearOptimization,
+#             'dataset': predictions_dataset,
+#             'client': bigquery.Client(project='silicon-badge-274423'),
+#             'num_candidate_stocks': 40,
+#             'target_table_id': target_table,
+#             'options': {
+#                 'constraint': constraint
+#             }
+#         }
+#
+#         x = PortfolioCreator(**kwargs)
+#         x.pick_stocks()
