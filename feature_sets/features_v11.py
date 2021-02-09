@@ -25,6 +25,7 @@ Implementation Details Todos:
 
 START_DATE = '1970-01-01'
 TRADING_DAYS = 253
+TIME_LAG = 1
 RAW_FEATURES = [
     'permno',
     'prediction_date',
@@ -43,10 +44,10 @@ RAW_FEATURES = [
 
 FINAL_FEATURES = [
     'permno', 'date', 'prediction_date',
-    # 'average_daily_return_global_z', 'beta_global_z',
-    # 'beta_bear_global_z', 'beta_bull_global_z', 'gain_loss_global_z',
-    # 'kurtosis_global_z', 'market_correlation_global_z', 'returns_bear_global_z',
-    # 'returns_bull_global_z', 'volatility_global_z',
+    'average_daily_return_global_z', 'beta_global_z',
+    'beta_bear_global_z', 'beta_bull_global_z', 'gain_loss_global_z',
+    'kurtosis_global_z', 'market_correlation_global_z', 'returns_bear_global_z',
+    'returns_bull_global_z', 'volatility_global_z',
     'average_daily_return_local_z', 'beta_local_z', 'beta_bear_local_z',
     'beta_bull_local_z', 'gain_loss_local_z', 'kurtosis_local_z',
     'market_correlation_local_z', 'returns_bear_local_z', 'returns_bull_local_z',
@@ -69,8 +70,6 @@ WITH
   SELECT
     date,
     std1.permno,
-    askhi,
-    bidlo,
     ticker,
     ret,
     CASE
@@ -80,13 +79,6 @@ WITH
     ABS(prc/cfacpr)
   END
     AS adjusted_prc,
-    CASE
-    # Volume is set to -99 if the value is missing. A volume of zero usually indicates that there were no trades during the time period and is usually paired with bid/ask quotes in price fields.
-      WHEN vol >= 0 THEN vol/cfacshr
-    ELSE
-    NULL
-  END
-    AS adjusted_vol,
     COALESCE((
       SELECT
         MIN(date)
@@ -109,24 +101,13 @@ WITH
     std1.permno,
     date )
 SELECT
+  DISTINCT
   sp_daily_features.permno,
   sp_daily_features.date,
   sp_daily_features.ret,
-  sp_daily_features.adjusted_vol,
-  sp_daily_features.prediction_date,
-  sp_daily_features.bidlo,
-  sp_daily_features.askhi
-  (CASE
-      WHEN std.prc = 0 THEN NULL
-    ELSE
-    ABS(std.prc/std.cfacpr) END) AS target
+  sp_daily_features.prediction_date
 FROM
   sp_daily_features
-LEFT JOIN
-  `silicon-badge-274423.financial_datasets.sp_timeseries_daily` std
-ON
-  std.permno = sp_daily_features.permno
-  AND std.date = sp_daily_features.prediction_date
 WHERE
     sp_daily_features.date >= '{ START_DATE }'
 """
@@ -135,11 +116,6 @@ WHERE
 print("Fetching stock prices. May take a few minutes.")
 client = bigquery.Client(project='silicon-badge-274423')
 returns_df = client.query(QUERY).to_dataframe()
-
-"""
-    FOR TESTING: SAVE returns_df as csv, comment out the above lines, and then load the csv here.
-"""
-
 
 returns_df = returns_df.sort_values(by=['permno', 'date']).reset_index()
 
@@ -165,27 +141,19 @@ sp_df = sp_df.sort_values(by=['date']).reset_index()
     Set 1980-01-01 returns to 0, since we care about returns since 1980.
 """
 sp_df.loc[0, 'vwretd'] = 0
+
 merged_df = returns_df.merge(sp_df, on='date', how='left')
-
-"""
-    Create Pivot Points.
-"""
-
-# Step 1. Create isPivot indicator variables for time series for different.
-
-# Step 2. Use rolling function to create pivot points for each time series day.
 
 """
 Create target volatility.
 """
 
-def fix_nested_index(series, indeces):
+def fix_nested_index(series, indeces, to_drop='permno'):
     series = series.reset_index(level=[0, 1])
-    series = series.drop('permno', axis=1).set_index('level_1')
+    series = series.drop(to_drop, axis=1).set_index('level_1')
     series.columns = indeces
 
     return series
-
 
 merged_df['log_ret'] = np.log(1 + merged_df['ret'])
 
@@ -194,6 +162,7 @@ six_mos = int(TRADING_DAYS / 2)
 target_volatility = by_permno['log_ret'].rolling(
     window=six_mos).std() * np.sqrt(six_mos)
 target_volatility = fix_nested_index(target_volatility, ['target_vol'])
+
 merged_df['target_vol'] = target_volatility
 
 vols = merged_df[['target_vol', 'permno', 'date']]
@@ -204,8 +173,13 @@ merged_df = merged_df.merge(vols, how='left', left_on=[
 merged_df = merged_df[['permno', 'date_x',
                        'prediction_date', 'ret', 'vwretd', 'target_vol_y', 'log_ret']]
 
+
+
 merged_df.columns = ['permno', 'date', 'prediction_date',
                      'ret', 'vwretd', 'target_vol', 'log_ret']
+
+merged_df['target_vol'] = merged_df.groupby('permno').target_vol.ffill()
+
 
 """
     Gain Loss %: (Stock[-1] - Stock[0]) * 100 / (Stock[0])
@@ -216,6 +190,7 @@ merged_df['cum_ret_stock'] = by_permno.cum_ret_stock.cumprod()
 merged_df['gain_loss'] = by_permno.cum_ret_stock.pct_change(
     periods=TRADING_DAYS)
 
+
 """
     Returns Target Goes Here
 """
@@ -224,14 +199,15 @@ cum_ret = merged_df[['permno', 'date', 'cum_ret_stock']]
 merged_df = merged_df.merge(cum_ret, how='left', left_on=[
                             'prediction_date', 'permno'], right_on=['date', 'permno'])
 
+# We need targets for stocks that are delisted 6 months in advanced for testing.
+merged_df['cum_ret_stock_y'] = merged_df.groupby('permno').cum_ret_stock_y.ffill()
+
 merged_df['target'] = (merged_df['cum_ret_stock_y'] -
                        merged_df['cum_ret_stock_x']) / (merged_df['cum_ret_stock_x'])
 merged_df = merged_df[['permno', 'date_x', 'prediction_date',
                        'ret', 'vwretd', 'cum_ret_stock_x', 'target', 'target_vol', 'log_ret', 'gain_loss']]
 merged_df.columns = ['permno', 'date', 'prediction_date',
                      'ret', 'vwretd', 'cum_ret_stock', 'target', 'target_vol', 'log_ret', 'gain_loss']
-by_permno = merged_df.groupby('permno')
-
 
 by_permno = merged_df.groupby('permno')
 
@@ -240,8 +216,6 @@ print("Finished calculating gain_loss.")
 """
     Beta = cov(Stock, Market) / Var(Market)
 """
-#
-
 
 def beta(stock_col, market_col):
     cov = by_permno[[stock_col, market_col]].rolling(
@@ -269,14 +243,16 @@ print("Finished calculating beta.")
 merged_df['ret_sp_bull'] = merged_df['vwretd']
 merged_df.loc[merged_df['ret_sp_bull'] < 0, 'ret_sp_bull'] = None
 
+# Get stock returns on days when market has gone up.
 merged_df['ret_stock_bull'] = merged_df['ret']
-merged_df.loc[merged_df['ret_stock_bull'] < 0, 'ret_stock_bull'] = None
+merged_df.loc[merged_df['ret_sp_bull'].isna(), 'ret_stock_bull'] = None
 
 merged_df['ret_sp_bear'] = merged_df['vwretd']
 merged_df.loc[merged_df['ret_sp_bear'] >= 0, 'ret_sp_bear'] = None
 
+# Get stock returns on days when market has gone down.
 merged_df['ret_stock_bear'] = merged_df['ret']
-merged_df.loc[merged_df['ret_stock_bear'] >= 0, 'ret_stock_bear'] = None
+merged_df.loc[merged_df['ret_sp_bear'].isna(), 'ret_stock_bear'] = None
 
 merged_df['is_bull'] = merged_df['ret_sp_bull'].notna()
 merged_df['is_bear'] = merged_df['ret_sp_bear'].notna()
@@ -377,7 +353,6 @@ print(f"Finished with {RAW_FEATURES}")
     Z-score transform these windows and add to dataframe.
 
     1. Global Z score for last 365 days.
-    2. permno Z score for last 365 days.
 
     NB: If stock has been listed within last 2 years. It will only have price features for last year, since the window is a year.
     We will consider these price features if there are a minimum of 30 periods to compare.
@@ -390,15 +365,9 @@ numeric_features = set(RAW_FEATURES) - \
     set(['permno', 'date', 'prediction_date'])
 features_df = merged_df[numeric_features]
 
-# Global ZScore. TODO: Add Global Zscore. Need to change index to days.
-# col_mean = features_df.rolling(window=TRADING_DAYS, min_periods=30).mean()
-# col_std = features_df.rolling(window=TRADING_DAYS, min_periods=30).std()
-# zscore = (features_df - col_mean)/col_std
-# global_cols = [str + '_global_z' for str in zscore.columns]
-# zscore.columns = global_cols
-# merged_df = merged_df.merge(zscore, how='left', left_index=True, right_index=True)
-
-# Local ZScore (Zscore by_permno)
+"""
+    Local zscore (Zscore by_permno)
+"""
 by_permno = merged_df[numeric_features.union(set(['permno']))].groupby('permno')[
     list(numeric_features)]
 col_mean = by_permno.rolling(window=TRADING_DAYS, min_periods=30).mean()
@@ -409,22 +378,40 @@ zscore = (features_df - col_mean) / (col_std)
 
 local_cols = [str + '_local_z' for str in zscore.columns]
 zscore.columns = local_cols
+
 merged_df = merged_df.merge(
     zscore, how='left', left_index=True, right_index=True)
 
-# print("Finished calculating local and global z-scores.")
 print("Finished calculating local z-scores.")
 
-final_df = merged_df[FINAL_FEATURES + ['target', 'target_vol']]
-final_df = final_df.dropna()
+"""
+    Global Z Score. Z score across permnos
+"""
+
+by_date = merged_df[numeric_features.union(set(['date']))].groupby('date')[list(numeric_features)]
+col_mean = by_date.transform('mean')
+col_std = by_date.transform('std')
+
+zscore = (features_df - col_mean) / (col_std)
+local_cols = [str + '_global_z' for str in zscore.columns]
+zscore.columns = local_cols
+merged_df = merged_df.merge(
+    zscore, how='left', left_index=True, right_index=True)
+
+print("Finished calculating global z-scores.")
 
 """
     Upload to Bigquery.
     TODO: This was stalling indefinitely. Have uploaded to bigquery manually.
 """
 
+final_df = merged_df[FINAL_FEATURES + ['target', 'target_vol']]
+final_df = final_df.dropna()
+
+import pdb; pdb.set_trace()
+
 # TODO: Make this a utils class. Improve this method.
-final_df.to_csv('features_v10.csv', index=False)
+final_df.to_csv('features_v11.csv', index=False)
 # job_config = bigquery.LoadJobConfig(
 #   source_format=bigquery.SourceFormat.CSV, skip_leading_rows=1,
 #   autodetect=True,

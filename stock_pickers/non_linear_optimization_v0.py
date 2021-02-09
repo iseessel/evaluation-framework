@@ -65,24 +65,8 @@ class NonLinearOptimization:
             x = [item / sum(x) for item in x]
             return x
 
-        # # sets bounds for variables, each weight is between 0 and 1. .
-        # # a = (0, 1)
-        # a = (0, 0.1)
-        # # a = (0, 0.05)
-        # print(f"Diversification: {a}")
-        # # Enforce diversification
-        # # a = (0, 0.05)
-        # bnds = [(a)] * (len(returns) - 1)
-
-        a = self.options['constraint']
-        if self.options['constrain_bonds']:
-            bnds = [(a)] * (len(returns) - 1)
-        else:
-            bnds = [(a)] * (len(returns) - 2)
-            bnds = bnds + [(0, 1)]
-
-        print(f"Diversification: {a}")
-        print(f"Bonds restricted: {bnds[-1]}")
+        stock_constraint, bond_restraint = self.options['constraint']
+        bounds = [(stock_constraint)] * (len(returns) - 2) + [bond_restraint]
 
         # these are the constraints, we must have the weights sum to 1
         cons = []
@@ -100,8 +84,32 @@ class NonLinearOptimization:
 
         # solve, slsqp is nonlinear optimization with constraints
         # may want to change maxiter for large portfolios, may not converge fast so this will give an approximate solution
-        sol = scipy.optimize.minimize(objective, x0, method='SLSQP', bounds=bnds, constraints=cons, options={
+        sol = scipy.optimize.minimize(objective, x0, method='SLSQP', bounds=bounds, constraints=cons, options={
                                       'disp': True, 'maxiter': 2000000})
+
+        ### Add second stage optimization here. Minimize Variance subject to lower bound of returns of previous optimization.
+
+        #Store values from previous optimization
+        sol=sol.x
+        prevreturn=ret(sol)
+        prevvar=var(sol)
+        x0=sol
+
+        # Add Constraints to ensure solution is as good as in first stage, and weight constraints
+        cons=[]
+
+        con = {'type': 'eq', 'fun': lambda x: 1-sum(x[i-1] for i in range(1,len(returns)))}
+        cons = np.append(cons, con)
+
+
+        con = {'type': 'ineq', 'fun': lambda x: -1*var(x)**0.5+prevvar**0.5}
+        cons = np.append(cons, con)
+
+        con = {'type': 'ineq', 'fun': lambda x: ret(x)-prevreturn}
+        cons = np.append(cons, con)
+
+        #solve, minimize variance
+        sol=scipy.optimize.minimize(var,x0,method='SLSQP',bounds=bounds,constraints=cons,options={'disp': True ,'maxiter':200000})
 
         return sol.x
 
@@ -110,7 +118,8 @@ class NonLinearOptimization:
         df['Stock'] = self.predictions['permno'].astype(str)
         df['Expected Return'] = self.predictions['return_prediction']
         df['Standard Deviation'] = self.predictions['vol_prediction']
-        # TODO: This is hacky, but its not used anywhere.
+
+        # TODO: This is a hacky way to setup the dataframe for 
         df['Market Price'] = 1
         df['Weights'] = 0
 

@@ -5,7 +5,7 @@ from dateutil.relativedelta import relativedelta
 from stock_model_trainer import StockModelTrainer
 from google.cloud import bigquery
 import os
-
+import tensorflow as tf
 
 class EvaluationFramework:
     """
@@ -34,7 +34,7 @@ class EvaluationFramework:
         self.client = kwargs['client']
         self.model = kwargs['model']
         self.permnos = kwargs['permnos']
-        self.dataset = kwargs['dataset']
+        self.features_dataset = kwargs['features_dataset']
         self.features = kwargs['features']
         self.hypers = kwargs['hypers']
         self.start = datetime.strptime(kwargs['start'], '%Y-%m-%d').date()
@@ -54,7 +54,7 @@ class EvaluationFramework:
             self.__eval_single_stock()
 
     def __create_stock_model_trainer(self, x_train, y_train, x_test, y_test, permno_dates, train_end, y_train_vol, y_test_vol):
-        kwargs = {
+        model_kwargs = {
             # 'hypers': self.hypers,
             'x_train': x_train,
             'y_train': y_train,
@@ -65,18 +65,19 @@ class EvaluationFramework:
             'options': self.options
         }
 
-        model = self.model(**kwargs)
-        kwargs = {
+        model = self.model(**model_kwargs)
+
+        stock_model_trainer_kwargs = {
             'model': model,
             'y_test': y_test,
             'y_test_vol': y_test_vol,
             'hypers': self.hypers,
-            'dataset': self.dataset,
+            'dataset': self.features_dataset,
             'train_start': self.start,
             'train_end': train_end
         }
 
-        return StockModelTrainer(**kwargs)
+        return StockModelTrainer(**stock_model_trainer_kwargs)
 
     def __load_stock_results(self, stock_results):
         # Prepare evaluation data to be uploaded to Bigquery.
@@ -139,7 +140,22 @@ class EvaluationFramework:
         y_train_vol = train_df.get('target_vol', None)
         y_test_vol = test_df.get('target_vol', None)
 
+
+        # Tests that we are considering the correct stocks for test, as these will be our predictions.
+        # stocks_in_sp = set([ int(permno) for permno in sp_historical_df.PERMNO.tolist()])
+        # stocks_in_train = set(x_test.permno.unique())
+        #
+        # print(f"Stocks in sp, not in consideration: { stocks_in_sp - stocks_in_train }")
+        # print(f"Stocks in consideration, not in sp: { stocks_in_train - stocks_in_sp}")
+        # for permno in (stocks_in_sp - stocks_in_train):
+        #     permno_df = df[df.permno == permno]
+        #
+        #     if not permno_df.empty:
+        #         min_date = permno_df.date.min()
+        #         print(f"Min date for stock is: { min_date }. {(min_date - train_end).days} before train_end")
+
         return (x_train, y_train, x_test, y_test, y_train_vol, y_test_vol)
+
 
     def __get_sp_historical(self):
         QUERY = "SELECT * FROM `silicon-badge-274423.financial_datasets.sp_constituents_historical`"
@@ -153,16 +169,18 @@ class EvaluationFramework:
 
         stock_results = []
         for time in timeframes:
-            print(f"Starting Timeframe: {self.start} - {time}")
             x_train, y_train, x_test, y_test, y_train_vol, y_test_vol = self.__get_train_test(
                 stock_data, sp_historical_df, self.start, time)
 
+            print("####################################################")
+            print(f"Starting Timeframe: {self.start} - {time}")
             print(
                 f"X train: From ({x_train.date.min()} - {x_train.date.max() }). Num examples: { len(x_train) }\n"
                 f"Y train. Num examples: { len(y_train) }\n"
                 f"X test: From ({x_test.date.min()} - {x_test.date.max() }). Num examples: { len(x_test) }\n"
-                f"Y test: Num examples: { len(x_test) }\n"
+                f"Y test: Num examples: { len(x_test) }"
             )
+            print("####################################################\n")
 
             # No data available for time period.
             if len(x_train) == 0:
@@ -171,16 +189,18 @@ class EvaluationFramework:
             # TODO: Refactor glue to take train_df and test_df
             # Apply custome glue function to get data ready for model.
             x_train, y_train, x_test, y_test, permno_dates, y_train_vol, y_test_vol = self.glue(
-                x_train, y_train, x_test, y_test, y_train_vol, y_test_vol)
+                x_train, y_train, x_test, y_test, y_train_vol, y_test_vol, self.features)
 
+            print("####################################################")
             print(
                 f"X train shape: {x_train.shape}\n"
                 f"Y train shape: {y_train.shape}\n"
                 f"X test shape: {x_test.shape}\n"
                 f"Y test shape: {y_test.shape}\n"
                 f"Y train vol shape: {y_train_vol.shape}\n"
-                f"Y test vol shape: {y_test_vol.shape}\n"
+                f"Y test vol shape: {y_test_vol.shape}"
             )
+            print("####################################################\n")
 
             trainer = self.__create_stock_model_trainer(
                 x_train, y_train, x_test, y_test, permno_dates, time, y_train_vol, y_test_vol)
@@ -195,7 +215,10 @@ class EvaluationFramework:
 
         return self.__load_stock_results(stock_results)
 
-    # TODO: This needs to be refactored. This will *NOT* work.
+    """
+        This method is deprecated, and will need to be refactored if used again.
+        We are no longer using single stock models.
+    """
     def __eval_single_stock(self):
         timeframes = self.__get_stock_timeframes()
 
@@ -224,13 +247,12 @@ class EvaluationFramework:
 
         return self.__load_stock_results(stock_results)
 
-    # TODO: Decide whether or not to Retrieve this per stock (May run into memory constraints.)
     def __get_stock_data(self):
         QUERY = f"""
         SELECT
             *
         FROM
-            `{ self.dataset }`
+            `{ self.features_dataset }`
         WHERE
             permno IN UNNEST({ self.permnos }) AND
               date >= '{ self.start.strftime('%Y-%m-%d') }' AND
@@ -238,8 +260,11 @@ class EvaluationFramework:
         ORDER BY
             date
         """
-        print("Fetching features dataset")
+
+        print("####################################################")
+        print("Fetching features dataset from GCP Bigquery. May take a few minutes.")
         print(QUERY)
+        print("####################################################\n")
 
         df = self.client.query(QUERY).to_dataframe()
 
@@ -256,7 +281,7 @@ class EvaluationFramework:
         SELECT
             permno, MIN(date) as min_date, MAX(date) as max_date
         FROM
-            `{ self.dataset }`
+            `{ self.features_dataset }`
         WHERE
             permno IN UNNEST({ self.permnos }) AND
             date >= '{ self.start.strftime('%Y-%m-%d') }' AND
@@ -281,7 +306,6 @@ class EvaluationFramework:
 
         return result
 
-    # TODO: Improve timeframes to months (instead of days).
     def __get_timeframes(self):
         dates = []
 
